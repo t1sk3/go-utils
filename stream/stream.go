@@ -1,6 +1,6 @@
-package utils
+package stream
 
-import optional "utils/optional"
+import "utils/optional"
 
 // Stream is a lazy, chainable abstraction over a finite or potentially unbounded
 // sequence of elements of type T. It supports intermediate operations that

@@ -1,6 +1,6 @@
-package utils
+package stream
 
-import optional "utils/optional"
+import "utils/optional"
 
 type defaultStream[T any] struct {
 	Stream[T]
