@@ -21,11 +21,13 @@ package stream
 
 import (
 	"iter"
+	"maps"
 	"math"
 	"slices"
 
 	"github.com/t1sk3/go-utils/types/constraints"
 	"github.com/t1sk3/go-utils/types/optional"
+	"github.com/t1sk3/go-utils/types/pair"
 )
 
 // Stream is a lazy sequence of elements of type T. See the package documentation.
@@ -63,6 +65,29 @@ func FromSeq[T any](seq iter.Seq[T]) Stream[T] {
 		return Stream[T]{}
 	}
 	return Stream[T]{seq: seq, size: -1}
+}
+
+// FromSeq2 returns a Stream of the key-value pairs of an iterator, such as
+// maps.All(m) or slices.All(s). Use ToSeq2 to turn it back into an iter.Seq2.
+func FromSeq2[K, V any](seq iter.Seq2[K, V]) Stream[pair.Pair[K, V]] {
+	if seq == nil {
+		return Stream[pair.Pair[K, V]]{}
+	}
+	return Stream[pair.Pair[K, V]]{size: -1, seq: func(yield func(pair.Pair[K, V]) bool) {
+		for k, v := range seq {
+			if !yield(pair.Of(k, v)) {
+				return
+			}
+		}
+	}}
+}
+
+// FromMap returns a Stream of the entries of m, in no particular order. The map is
+// not copied, so it must not be modified while the stream is in use.
+func FromMap[K comparable, V any](m map[K]V) Stream[pair.Pair[K, V]] {
+	s := FromSeq2(maps.All(m))
+	s.size = len(m)
+	return s
 }
 
 // Empty returns a Stream with no elements. It is equivalent to the zero value.
@@ -401,6 +426,21 @@ func (s Stream[T]) Reduce(accumulator func(acc, v T) T) optional.Optional[T] {
 		return optional.Empty[T]()
 	}
 	return optional.Of(result)
+}
+
+// Partition collects the elements that satisfy predicate into matched and the rest
+// into rest, preserving their order, in a single pass. Neither result is nil.
+func (s Stream[T]) Partition(predicate func(T) bool) (matched, rest []T) {
+	checkFunc(predicate == nil, "Partition")
+	matched, rest = []T{}, []T{}
+	for v := range s.All() {
+		if predicate(v) {
+			matched = append(matched, v)
+		} else {
+			rest = append(rest, v)
+		}
+	}
+	return matched, rest
 }
 
 // ToSlice collects the elements into a new slice. The result is never nil and never

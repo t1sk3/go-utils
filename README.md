@@ -8,6 +8,8 @@ The repository holds two modules:
 |---|---|---|
 | `github.com/t1sk3/go-utils` | [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
 | `github.com/t1sk3/go-utils/types` | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
+| | [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
+| | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
 | | [`constraints`](types/constraints) | `Integer`, `Number`, `Float`, ... constraints for generic code |
 
 `types` holds the shared vocabulary and has no dependencies, so your own libraries
@@ -56,12 +58,27 @@ Streams interoperate with `iter.Seq`, so they work with `range` and the standard
 for k := range stream.Sort(stream.FromSeq(maps.Keys(m))).All() { ... }
 ```
 
+Two-value iterators come in as streams of `pair.Pair` and go back out with `ToSeq2`:
+
+```go
+for i, name := range stream.ToSeq2(stream.Enumerate(names)) { ... }
+byID := maps.Collect(stream.ToSeq2(stream.Zip(ids, users)))
+```
+
+Batching, sliding windows and running totals work on infinite streams too:
+
+```go
+for batch := range stream.Chunk(rows, 500).All() { db.InsertMany(batch) }
+avg := stream.Map(stream.Window(prices, 7), mean)                // 7-day moving average
+balance := stream.Scan(changes, 0, func(t, c int) int { return t + c })
+```
+
 | | |
 |---|---|
-| **Sources** | `Of`, `FromSlice`, `FromSeq`, `Range`, `Iterate`, `Generate`, `Concat`, `Empty` |
+| **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `Range`, `Iterate`, `Generate`, `Concat`, `Empty` |
 | **Intermediate methods** | `Filter`, `Map` (same type), `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted` |
-| **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Min`, `Max`, `FindFirst`, `AnyMatch`, `AllMatch`, `NoneMatch`, `All` |
-| **Generic functions** | `Map`, `FlatMap`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Min`, `Max`, `GroupBy`, `ToMap`, `Join` |
+| **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Min`, `Max`, `FindFirst`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `All` |
+| **Generic functions** | `Map`, `FlatMap`, `Zip`, `Enumerate`, `Chunk`, `Window`, `Scan`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Min`, `Max`, `GroupBy`, `ToMap`, `ToSet`, `ToSeq2`, `Join` |
 
 ## optional
 
@@ -78,6 +95,33 @@ name := optional.Map(findUser(id), func(u User) string { return u.Name }).OrElse
 `Optional[T]` is a plain value type. The zero value is empty, it never allocates,
 and it marshals to/from JSON as the value or `null` (use `json:",omitzero"` to drop
 empty fields).
+
+It also reads nullable database columns: `Optional` implements `sql.Scanner`, so
+NULL scans to an empty Optional. Its `Value() (T, bool)` method rules out
+`driver.Valuer`, so to write one back use `opt.SQL()`, or declare struct fields as
+`optional.Null[T]`, an `Optional` that implements both interfaces:
+
+```go
+var email optional.Optional[string]
+db.QueryRow("SELECT email FROM users WHERE id = $1", id).Scan(&email)
+db.Exec("UPDATE users SET email = $1 WHERE id = $2", email.SQL(), id)
+```
+
+## set
+
+```go
+import "github.com/t1sk3/go-utils/types/set"
+
+var seen set.Set[string] // the zero value is ready to use
+seen.Add("a", "b")
+
+admins := stream.ToSet(stream.Map(stream.FromSlice(users).Filter(User.IsAdmin), User.ID))
+missing := required.Difference(granted)
+```
+
+`Set` has `Union`, `Intersection`, `Difference`, `SymmetricDifference`,
+`IsSubsetOf`, `Equal`, iterates with `All()` and marshals to/from a JSON array.
+Like a map, copies share storage; use `Clone` for an independent copy.
 
 ## Performance
 

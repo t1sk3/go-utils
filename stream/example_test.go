@@ -50,3 +50,41 @@ func ExampleStream_All() {
 	}
 	// Output: ABC
 }
+
+func ExampleZip() {
+	names := stream.Of("alice", "bob", "carol")
+	ages := stream.Of(31, 17)
+	for name, age := range stream.ToSeq2(stream.Zip(names, ages)) {
+		fmt.Println(name, age)
+	}
+	// Output:
+	// alice 31
+	// bob 17
+}
+
+func ExampleChunk() {
+	for batch := range stream.Chunk(stream.Range(1, 8), 3).All() {
+		fmt.Println(batch)
+	}
+	// Output:
+	// [1 2 3]
+	// [4 5 6]
+	// [7]
+}
+
+func ExampleWindow() {
+	prices := stream.Of(10.0, 12.0, 11.0, 15.0)
+	movingAvg := stream.Map(stream.Window(prices, 2), func(w []float64) float64 {
+		return (w[0] + w[1]) / 2
+	})
+	fmt.Println(movingAvg.ToSlice())
+	// Output: [11 11.5 13]
+}
+
+func ExampleScan() {
+	balance := stream.Scan(stream.Of(100, -30, 50, -20), 0, func(total, change int) int {
+		return total + change
+	})
+	fmt.Println(balance.ToSlice())
+	// Output: [100 70 120 100]
+}
