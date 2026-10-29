@@ -8,5 +8,5 @@
 //   - [github.com/t1sk3/go-utils/types/optional]: Optional, a value that may be absent
 //   - [github.com/t1sk3/go-utils/types/pair]: Pair, two values of possibly different types
 //   - [github.com/t1sk3/go-utils/types/set]: Set, an unordered collection of distinct values
-//   - [github.com/t1sk3/go-utils/types/constraints]: Integer, Number and friends for generic code
+//   - [github.com/t1sk3/go-utils/types/constraints]: Integer, Number, Numeric and friends for generic code
 package types
