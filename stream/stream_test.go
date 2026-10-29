@@ -2,6 +2,7 @@ package stream
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -25,8 +26,8 @@ func TestFilter(t *testing.T) {
 
 func TestMap(t *testing.T) {
 	s := FromSlice([]int{1, 2, 3})
-	mapped := s.Map(func(i int) any { return i * 2 }).ToSlice()
-	expected := []any{2, 4, 6}
+	mapped := Map(s, func(i int) string { return strconv.Itoa(i * 2) }).ToSlice()
+	expected := []string{"2", "4", "6"}
 	if !reflect.DeepEqual(mapped, expected) {
 		t.Errorf("Map failed: got %v, want %v", mapped, expected)
 	}
@@ -95,7 +96,7 @@ func TestNoneMatch(t *testing.T) {
 
 func TestDistinct(t *testing.T) {
 	s := FromSlice([]int{1, 2, 2, 3, 1, 4})
-	distinct := s.Distinct().ToSlice()
+	distinct := Distinct(s).ToSlice()
 	expected := []int{1, 2, 3, 4}
 	if !reflect.DeepEqual(distinct, expected) {
 		t.Errorf("Distinct failed: got %v, want %v", distinct, expected)
@@ -175,9 +176,9 @@ func TestFilterMapReduce(t *testing.T) {
 	s := FromSlice([]int{1, 2, 3, 4, 5, 6})
 	result := s.
 		Filter(func(i int) bool { return i%2 == 0 }).
-		Map(func(i int) any { return int64(i) * 10 }).
-		Reduce(func(a, b any) any { return a.(int64) + b.(int64) })
-	if result.Get() != int64(120) {
+		Map(func(i int) int { return i * 10 }).
+		Reduce(func(a, b int) int { return a + b })
+	if result.Get() != 120 {
 		t.Errorf("Combined Filter, Map, Reduce failed: got %d, want 120", result.Get())
 	}
 }

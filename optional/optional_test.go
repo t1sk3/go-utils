@@ -57,10 +57,10 @@ func TestOfNullable_NonNil(t *testing.T) {
 	if s := fmt.Sprint(opt); s != "Optional[abc]" {
 		t.Errorf("String() = %q, want %q", s, "Optional[abc]")
 	}
-	// Verify pointer semantics (value reflects changes to underlying variable)
+	// The value is copied, so later changes to the variable are not observed.
 	v = "def"
-	if got := opt.Get(); got != "def" {
-		t.Errorf("Get() after change = %q, want %q", got, "def")
+	if got := opt.Get(); got != "abc" {
+		t.Errorf("Get() after change = %q, want %q", got, "abc")
 	}
 }
 
