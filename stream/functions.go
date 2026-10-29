@@ -5,7 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/t1sk3/go-utils/optional"
+	"github.com/t1sk3/go-utils/types/constraints"
+	"github.com/t1sk3/go-utils/types/optional"
 )
 
 // This file holds operations that Go cannot express as methods on Stream, because
@@ -81,7 +82,7 @@ func Fold[T, A any](s Stream[T], initial A, accumulator func(acc A, v T) A) A {
 }
 
 // Sum returns the sum of the elements of s, or zero for an empty stream.
-func Sum[T Number](s Stream[T]) T {
+func Sum[T constraints.Number](s Stream[T]) T {
 	var total T
 	for v := range s.All() {
 		total += v

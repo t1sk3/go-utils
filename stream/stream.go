@@ -24,7 +24,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/t1sk3/go-utils/optional"
+	"github.com/t1sk3/go-utils/types/constraints"
+	"github.com/t1sk3/go-utils/types/optional"
 )
 
 // Stream is a lazy sequence of elements of type T. See the package documentation.
@@ -36,17 +37,6 @@ type Stream[T any] struct {
 	// size is the exact number of elements when known, or -1. It is only used to
 	// pre-size buffers.
 	size int
-}
-
-// Integer is a constraint matching all integer types.
-type Integer interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 |
-		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
-}
-
-// Number is a constraint matching all integer and floating-point types.
-type Number interface {
-	Integer | ~float32 | ~float64
 }
 
 // Of returns a Stream of the given values.
@@ -81,7 +71,7 @@ func Empty[T any]() Stream[T] {
 }
 
 // Range returns a Stream of the integers from start (inclusive) to end (exclusive).
-func Range[T Integer](start, end T) Stream[T] {
+func Range[T constraints.Integer](start, end T) Stream[T] {
 	size := 0
 	if end > start {
 		size = -1

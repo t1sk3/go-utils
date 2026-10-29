@@ -2,14 +2,22 @@
 
 Small, dependency-free generic utilities for Go 1.24+.
 
-```bash
-go get github.com/t1sk3/go-utils
-```
+The repository holds two modules:
 
-| Package | What it gives you |
-|---|---|
-| [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
-| [`optional`](optional) | A zero-allocation container for a value that may be absent |
+| Module | Package | What it gives you |
+|---|---|---|
+| `github.com/t1sk3/go-utils` | [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
+| `github.com/t1sk3/go-utils/types` | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
+| | [`constraints`](types/constraints) | `Integer`, `Number`, `Float`, ... constraints for generic code |
+
+`types` holds the shared vocabulary and has no dependencies, so your own libraries
+can accept or return an `optional.Optional` without pulling in `stream` or anything
+else built on top of it:
+
+```bash
+go get github.com/t1sk3/go-utils/types   # just the types
+go get github.com/t1sk3/go-utils         # the utilities (brings in types)
+```
 
 ## stream
 
@@ -58,7 +66,7 @@ for k := range stream.Sort(stream.FromSeq(maps.Keys(m))).All() { ... }
 ## optional
 
 ```go
-import "github.com/t1sk3/go-utils/optional"
+import "github.com/t1sk3/go-utils/types/optional"
 
 port := optional.OfOk(os.LookupEnv("PORT")).OrElse("8080")
 
