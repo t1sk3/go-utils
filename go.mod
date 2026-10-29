@@ -1,3 +1,3 @@
-module utils
+module github.com/t1sk3/go-utils
 
 go 1.24.8
