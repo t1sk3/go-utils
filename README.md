@@ -1,5 +1,8 @@
 # go-utils
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/t1sk3/go-utils.svg)](https://pkg.go.dev/github.com/t1sk3/go-utils)
+[![CI](https://github.com/t1sk3/go-utils/actions/workflows/ci.yml/badge.svg)](https://github.com/t1sk3/go-utils/actions/workflows/ci.yml)
+
 Small, dependency-free generic utilities for Go 1.24+.
 
 The repository holds two modules:
@@ -20,6 +23,10 @@ else built on top of it:
 go get github.com/t1sk3/go-utils/types   # just the types
 go get github.com/t1sk3/go-utils         # the utilities (brings in types)
 ```
+
+The two modules are versioned separately: tags `vX.Y.Z` release the root module and
+`types/vX.Y.Z` release `types`. Both are still at v0, so minor releases may contain
+breaking changes until v1.0.0. See [RELEASING.md](RELEASING.md) for how releases are cut.
 
 ## stream
 
