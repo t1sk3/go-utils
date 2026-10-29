@@ -49,3 +49,21 @@ func BenchmarkFilterFindFirst10k(b *testing.B) {
 		sink = FromSlice(ints10k).Filter(func(i int) bool { return i > 5000 }).FindFirst().Get()
 	}
 }
+
+func BenchmarkZip10k_Slice(b *testing.B) {
+	for b.Loop() {
+		sink = Zip(FromSlice(ints10k), FromSlice(ints10k)).Count()
+	}
+}
+
+func BenchmarkZip10k_Lazy(b *testing.B) {
+	for b.Loop() {
+		sink = Zip(FromSlice(ints10k), Range(0, 10_000)).Count()
+	}
+}
+
+func BenchmarkChunk10k(b *testing.B) {
+	for b.Loop() {
+		sink = Chunk(FromSlice(ints10k), 100).Count()
+	}
+}

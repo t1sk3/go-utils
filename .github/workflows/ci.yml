@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (Go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The minimum version from go.mod and the latest stable release.
+        go: ["1.24", "stable"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      # Modules that depend on this one ignore replace directives, so a replace would
+      # make the published module unbuildable. Local development uses go.work instead.
+      - name: No replace directives
+        run: |
+          if grep -nE '^[[:space:]]*replace' $(find . -name go.mod); then
+            echo "Remove replace directives from go.mod; use go.work for local development."
+            exit 1
+          fi
+
+      # The repository holds several modules (the root and ./types), and ./... stops
+      # at module boundaries, so every go command runs once per module. They run in
+      # the go.work workspace, so the root module is tested against ./types as it is
+      # in this commit, not the released version it requires.
+      - name: Vet
+        run: for m in $(dirname $(find . -name go.mod)); do (cd "$m" && go vet ./...) || exit 1; done
+
+      # go mod tidy ignores go.work, so this also checks that every module resolves
+      # its dependencies from published versions, exactly as `go get` will.
+      - name: Check go.mod is tidy
+        run: for m in $(dirname $(find . -name go.mod)); do (cd "$m" && go mod tidy -diff) || exit 1; done
+
+      - name: Build as a dependency (without go.work)
+        env:
+          GOWORK: "off"
+        run: for m in $(dirname $(find . -name go.mod)); do (cd "$m" && go build ./...) || exit 1; done
+
+      - name: Test
+        run: for m in $(dirname $(find . -name go.mod)); do (cd "$m" && go test -race -cover ./...) || exit 1; done
+
+      - name: Benchmarks compile and run
+        run: for m in $(dirname $(find . -name go.mod)); do (cd "$m" && go test -run '^$' -bench . -benchtime 1x ./...) || exit 1; done
