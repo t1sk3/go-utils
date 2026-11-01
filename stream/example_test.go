@@ -88,3 +88,16 @@ func ExampleScan() {
 	fmt.Println(balance.ToSlice())
 	// Output: [100 70 120 100]
 }
+
+func ExampleNot() {
+	evens := stream.Range(0, 10).Filter(stream.IsEven)
+	odds := stream.Range(0, 10).Filter(stream.Not(stream.IsEven[int]))
+	fmt.Println(evens.ToSlice(), odds.ToSlice())
+	// Output: [0 2 4 6 8] [1 3 5 7 9]
+}
+
+func ExampleAnd() {
+	teens := stream.And(stream.AtLeast(13), stream.AtMost(19))
+	fmt.Println(stream.Of(9, 13, 17, 21).Filter(teens).ToSlice())
+	// Output: [13 17]
+}
