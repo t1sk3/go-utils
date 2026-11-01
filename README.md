@@ -80,12 +80,22 @@ avg := stream.Map(stream.Window(prices, 7), mean)                // 7-day moving
 balance := stream.Scan(changes, 0, func(t, c int) int { return t + c })
 ```
 
+Common predicates are built in, and `Not`, `And` and `Or` combine them:
+
+```go
+stream.Range(0, 10).Filter(stream.IsEven)                    // 0 2 4 6 8
+stream.Range(0, 10).Filter(stream.Not(stream.IsEven[int]))   // 1 3 5 7 9
+stream.FromSlice(ages).Filter(stream.Between(13, 19))
+stream.FromSlice(names).Filter(stream.Not(stream.IsZero[string]))
+```
+
 | | |
 |---|---|
 | **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `Range`, `Iterate`, `Generate`, `Concat`, `Empty` |
 | **Intermediate methods** | `Filter`, `Map` (same type), `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted` |
 | **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Min`, `Max`, `FindFirst`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `All` |
 | **Generic functions** | `Map`, `FlatMap`, `Zip`, `Enumerate`, `Chunk`, `Window`, `Scan`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Min`, `Max`, `GroupBy`, `ToMap`, `ToSet`, `ToSeq2`, `Join` |
+| **Predicates** | `IsEven`, `IsOdd`, `IsPositive`, `IsNegative`, `IsZero`, `Equal`, `GreaterThan`, `LessThan`, `AtLeast`, `AtMost`, `Between`, `In`, `Not`, `And`, `Or` |
 
 ## optional
 
