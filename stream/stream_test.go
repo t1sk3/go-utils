@@ -55,6 +55,39 @@ func TestFindFirst(t *testing.T) {
 	}
 }
 
+func TestFindLast(t *testing.T) {
+	isEven := func(i int) bool { return i%2 == 0 }
+	never := func(int) bool { return false }
+	tests := []struct {
+		name    string
+		s       Stream[int]
+		want    int
+		present bool
+	}{
+		{"slice", Of(10, 20, 30), 30, true},
+		{"single element", Of(42), 42, true},
+		{"empty slice", FromSlice([]int{}), 0, false},
+		{"zero value stream", Stream[int]{}, 0, false},
+		{"lazy pipeline", Of(1, 2, 3, 4, 5).Filter(isEven), 4, true},
+		{"empty lazy pipeline", Of(1, 2, 3).Filter(never), 0, false},
+		{"last element is the zero value", Of(1, 0).Filter(func(int) bool { return true }), 0, true},
+		{"bounded infinite stream", Iterate(1, func(i int) int { return i + 1 }).Limit(3), 3, true},
+		{"limited slice", Of(1, 2, 3).Limit(2), 2, true},
+		{"skipped past the end", Of(1, 2).Skip(5), 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.s.FindLast()
+			if got.IsPresent() != tt.present {
+				t.Fatalf("IsPresent = %v, want %v", got.IsPresent(), tt.present)
+			}
+			if tt.present && got.Get() != tt.want {
+				t.Errorf("Get = %d, want %d", got.Get(), tt.want)
+			}
+		})
+	}
+}
+
 func TestFindAny(t *testing.T) {
 	s := FromSlice([]int{42})
 	opt := s.FindAny()
