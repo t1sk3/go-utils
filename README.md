@@ -85,6 +85,15 @@ avg := stream.Map(stream.Window(prices, 7), mean)                // 7-day moving
 balance := stream.Scan(changes, 0, func(t, c int) int { return t + c })
 ```
 
+Collectors reduce a stream and nest, so a grouping can reduce each group instead of
+keeping its elements. They are the counterparts of Java's `Collectors`:
+
+```go
+averageAge := stream.Collect(users, stream.GroupingBy(User.Team, stream.Averaging(User.Age)))
+activeByTeam := stream.Collect(users, stream.GroupingBy(User.Team,
+	stream.Filtering(User.IsActive, stream.Counting[User]())))
+```
+
 Common predicates are built in, and `Not`, `And` and `Or` combine them:
 
 ```go
@@ -126,6 +135,7 @@ stream.FromSlice(users).Sorted(stream.ThenComparing(stream.Reversed(byAge), byNa
 | **Generic functions** | `Map`, `FlatMap`, `Zip`, `Enumerate`, `Chunk`, `Window`, `Scan`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Average`, `Min`, `Max`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `ToSet`, `ToSeq2`, `Join` |
 | **Comparators** | `Comparing`, `Reversed`, `ThenComparing` |
 | **Predicates** | `IsEven`, `IsOdd`, `IsPositive`, `IsNegative`, `IsZero`, `Equal`, `GreaterThan`, `LessThan`, `AtLeast`, `AtMost`, `Between`, `In`, `Not`, `And`, `Or` |
+| **Collectors** | `Collect`, `NewCollector`, `IntoSlice`, `IntoSet`, `Joining`, `Counting`, `Summing`, `Averaging`, `MinBy`, `MaxBy`, `Folding`, `GroupingBy`, `PartitioningBy`, `Mapping`, `FlatMapping`, `Filtering`, `CollectingAndThen`, `Teeing` |
 
 ## optional
 
