@@ -14,6 +14,7 @@ The repository holds two modules:
 | | [`concurrent`](concurrent) | `Map[K, V]`, a typed map with atomic `ComputeIfAbsent`, `Compute` and `Merge` |
 | `github.com/t1sk3/go-utils/types` | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
 | | [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
+| | [`sorted`](types/sorted) | `Map[K, V]` and `Set[T]`, kept in comparator order with floor, ceiling and range lookups |
 | | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
 | | [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
 
