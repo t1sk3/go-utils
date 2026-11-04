@@ -13,6 +13,7 @@ The repository holds two modules:
 | `github.com/t1sk3/go-utils/types` | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
 | | [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
 | | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
+| | [`linked`](types/linked) | `Map[K, V]` and `Set[T]` that remember insertion order, which also makes an LRU cache simple |
 | | [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
 
 `types` holds the shared vocabulary and has no dependencies, so your own libraries
