@@ -93,6 +93,22 @@ func Sum[T constraints.Number](s Stream[T]) T {
 	return total
 }
 
+// Average returns the arithmetic mean of the elements of s, or an empty Optional if s
+// is empty. The elements are summed as float64, so very large integers may lose
+// precision.
+func Average[T constraints.Number](s Stream[T]) optional.Optional[float64] {
+	var total float64
+	n := 0
+	for v := range s.All() {
+		total += float64(v)
+		n++
+	}
+	if n == 0 {
+		return optional.Empty[float64]()
+	}
+	return optional.Of(total / float64(n))
+}
+
 // Sort returns a Stream of the elements of s in ascending natural order. Use
 // Stream.Sorted for a custom ordering.
 func Sort[T cmp.Ordered](s Stream[T]) Stream[T] {
@@ -121,13 +137,41 @@ func GroupBy[T any, K comparable](s Stream[T], key func(T) K) map[K][]T {
 	return groups
 }
 
+// CountBy returns the number of elements of s for each key.
+func CountBy[T any, K comparable](s Stream[T], key func(T) K) map[K]int {
+	checkFunc(key == nil, "CountBy")
+	counts := make(map[K]int)
+	for v := range s.All() {
+		counts[key(v)]++
+	}
+	return counts
+}
+
 // ToMap collects the elements of s into a map. If several elements produce the same
-// key, the last one wins.
+// key, the last one wins. Use ToMapMerge to combine them instead.
 func ToMap[T any, K comparable, V any](s Stream[T], key func(T) K, value func(T) V) map[K]V {
 	checkFunc(key == nil || value == nil, "ToMap")
 	m := make(map[K]V, max(s.size, 0))
 	for v := range s.All() {
 		m[key(v)] = value(v)
+	}
+	return m
+}
+
+// ToMapMerge collects the elements of s into a map. If several elements produce the
+// same key, their values are combined from left to right with merge:
+//
+//	totals := stream.ToMapMerge(orders, Order.Customer, Order.Amount,
+//		func(a, b int) int { return a + b })
+func ToMapMerge[T any, K comparable, V any](s Stream[T], key func(T) K, value func(T) V, merge func(existing, next V) V) map[K]V {
+	checkFunc(key == nil || value == nil || merge == nil, "ToMapMerge")
+	m := make(map[K]V, max(s.size, 0))
+	for v := range s.All() {
+		k, val := key(v), value(v)
+		if existing, ok := m[k]; ok {
+			val = merge(existing, val)
+		}
+		m[k] = val
 	}
 	return m
 }

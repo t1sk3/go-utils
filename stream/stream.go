@@ -113,6 +113,27 @@ func Range[T constraints.Integer](start, end T) Stream[T] {
 	}}
 }
 
+// RangeClosed returns a Stream of the integers from start to end, both inclusive. It
+// is empty if start > end, and end may be the largest value of T.
+func RangeClosed[T constraints.Integer](start, end T) Stream[T] {
+	size := 0
+	if end >= start {
+		size = -1
+		if d := end - start; d >= 0 && uint64(d) < math.MaxInt {
+			size = int(d) + 1
+		}
+	}
+	return Stream[T]{size: size, seq: func(yield func(T) bool) {
+		if start > end {
+			return
+		}
+		// Check for the end before incrementing, as v <= end would never be false
+		// when end is the largest value of T.
+		for v := start; yield(v) && v != end; v++ {
+		}
+	}}
+}
+
 // Iterate returns an infinite Stream of seed, next(seed), next(next(seed)), ...
 // Bound it with Limit or TakeWhile before calling a terminal operation that
 // consumes every element.

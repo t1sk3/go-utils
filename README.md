@@ -89,12 +89,21 @@ stream.FromSlice(ages).Filter(stream.Between(13, 19))
 stream.FromSlice(names).Filter(stream.Not(stream.IsZero[string]))
 ```
 
+`Comparing`, `Reversed` and `ThenComparing` build comparators for `Sorted`, `Min` and `Max`:
+
+```go
+byAge := stream.Comparing(func(u User) int { return u.Age })
+byName := stream.Comparing(func(u User) string { return u.Name })
+stream.FromSlice(users).Sorted(stream.ThenComparing(stream.Reversed(byAge), byName)) // oldest first, then by name
+```
+
 | | |
 |---|---|
-| **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `Range`, `Iterate`, `Generate`, `Concat`, `Empty` |
+| **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `Range`, `RangeClosed`, `Iterate`, `Generate`, `Concat`, `Empty` |
 | **Intermediate methods** | `Filter`, `Map` (same type), `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted` |
 | **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Min`, `Max`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `All` |
-| **Generic functions** | `Map`, `FlatMap`, `Zip`, `Enumerate`, `Chunk`, `Window`, `Scan`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Min`, `Max`, `GroupBy`, `ToMap`, `ToSet`, `ToSeq2`, `Join` |
+| **Generic functions** | `Map`, `FlatMap`, `Zip`, `Enumerate`, `Chunk`, `Window`, `Scan`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Average`, `Min`, `Max`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `ToSet`, `ToSeq2`, `Join` |
+| **Comparators** | `Comparing`, `Reversed`, `ThenComparing` |
 | **Predicates** | `IsEven`, `IsOdd`, `IsPositive`, `IsNegative`, `IsZero`, `Equal`, `GreaterThan`, `LessThan`, `AtLeast`, `AtMost`, `Between`, `In`, `Not`, `And`, `Or` |
 
 ## optional
