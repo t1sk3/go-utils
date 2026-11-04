@@ -147,6 +147,9 @@ port := optional.OfOk(os.LookupEnv("PORT")).OrElse("8080")
 if u, ok := findUser(id).Value(); ok { ... }
 
 name := optional.Map(findUser(id), func(u User) string { return u.Name }).OrElse("anonymous")
+
+u, err := findUser(id).OrElseErr(ErrNotFound)
+timeout := optional.FromMap(settings, "timeout").OrElse(30)
 ```
 
 `Optional[T]` is a plain value type. The zero value is empty, it never allocates,
@@ -177,7 +180,9 @@ missing := required.Difference(granted)
 ```
 
 `Set` has `Union`, `Intersection`, `Difference`, `SymmetricDifference`,
-`IsSubsetOf`, `Equal`, iterates with `All()` and marshals to/from a JSON array.
+`IsSubsetOf`, `IsSupersetOf`, `IsDisjoint`, `Equal`, iterates with `All()` and marshals
+to/from a JSON array. `Add`, `Remove`, `RemoveIf` and `RetainAll` return how many values
+they changed.
 Like a map, copies share storage; use `Clone` for an independent copy.
 
 ## Performance

@@ -43,21 +43,45 @@ func Collect[T comparable](seq iter.Seq[T]) Set[T] {
 	return s
 }
 
-// Add adds the given values to s.
-func (s *Set[T]) Add(values ...T) {
+// Add adds the given values to s and returns how many were not already present.
+func (s *Set[T]) Add(values ...T) int {
 	if s.m == nil {
 		s.m = make(map[T]struct{}, len(values))
 	}
+	before := len(s.m)
 	for _, v := range values {
 		s.m[v] = struct{}{}
 	}
+	return len(s.m) - before
 }
 
-// Remove removes the given values from s. Values that are not in s are ignored.
-func (s *Set[T]) Remove(values ...T) {
+// Remove removes the given values from s and returns how many were present. Values
+// that are not in s are ignored.
+func (s *Set[T]) Remove(values ...T) int {
+	before := len(s.m)
 	for _, v := range values {
 		delete(s.m, v)
 	}
+	return before - len(s.m)
+}
+
+// RemoveIf removes the values that satisfy predicate and returns how many it removed.
+func (s *Set[T]) RemoveIf(predicate func(T) bool) int {
+	before := len(s.m)
+	for v := range s.m {
+		if predicate(v) {
+			delete(s.m, v)
+		}
+	}
+	return before - len(s.m)
+}
+
+// RetainAll removes the values that are not in other and returns how many it removed.
+func (s *Set[T]) RetainAll(other Set[T]) int {
+	return s.RemoveIf(func(v T) bool {
+		_, ok := other.m[v]
+		return !ok
+	})
 }
 
 // Clear removes every value from s.
@@ -144,6 +168,25 @@ func (s Set[T]) IsSubsetOf(other Set[T]) bool {
 	}
 	for v := range s.m {
 		if _, ok := other.m[v]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// IsSupersetOf reports whether every value of other is also in s.
+func (s Set[T]) IsSupersetOf(other Set[T]) bool {
+	return other.IsSubsetOf(s)
+}
+
+// IsDisjoint reports whether s and other have no values in common.
+func (s Set[T]) IsDisjoint(other Set[T]) bool {
+	small, large := s.m, other.m
+	if len(small) > len(large) {
+		small, large = large, small
+	}
+	for v := range small {
+		if _, ok := large[v]; ok {
 			return false
 		}
 	}

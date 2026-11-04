@@ -29,3 +29,10 @@ func ExampleSet_MarshalJSON() {
 	fmt.Println(doc.Tags)
 	// Output: Set[a b]
 }
+
+func ExampleSet_RemoveIf() {
+	s := set.Of(1, 2, 3, 4)
+	removed := s.RemoveIf(func(v int) bool { return v%2 == 0 })
+	fmt.Println(removed, s)
+	// Output: 2 Set[1 3]
+}
