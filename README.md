@@ -89,6 +89,22 @@ stream.FromSlice(ages).Filter(stream.Between(13, 19))
 stream.FromSlice(names).Filter(stream.Not(stream.IsZero[string]))
 ```
 
+`Parallel` runs the stages after it on several goroutines, until `Sequential` returns to
+one-at-a-time processing. Results stay in source order, infinite sources work, and a
+panic in a stage comes back on the consuming goroutine. `MapConcurrent` is the shorthand
+for a single stage:
+
+```go
+pages := stream.MapConcurrent(urls, 8, fetch).ToSlice()
+ok := stream.ParallelMap(stream.FromSlice(images).Parallel(runtime.GOMAXPROCS(0)), resize).
+	Filter(isValid).
+	Sequential().
+	Count()
+```
+
+Each element costs about half a microsecond of coordination, so this suits I/O and heavy
+computation, not cheap functions. See [Performance](#performance) for measurements.
+
 `Comparing`, `Reversed` and `ThenComparing` build comparators for `Sorted`, `Min` and `Max`:
 
 ```go
@@ -161,3 +177,13 @@ Apple M5, `go test -bench . -benchmem`, comparing against the previous eager imp
 | Filter → Limit(10), 1M ints | 2.15 ms · 13.3 MB | 181 ns · 488 B | ~11,900× |
 | Filter → FindFirst, 10k ints | 21.5 µs · 128 KB | 40.8 ns · 152 B | ~530× |
 | `optional.Of` + `Get` | 9.19 ns · 2 allocs | 1.79 ns · 0 allocs | 5.1× |
+
+`MapConcurrent` against `Map` over 1,000 ints on 10 cores, for functions of different cost:
+
+| Function cost per element | `Map` | `MapConcurrent` | Result |
+|---:|---:|---:|---|
+| 4 ns | 4.3 µs | 536 µs | 125× slower |
+| 0.7 µs | 661 µs | 770 µs | 1.2× slower |
+| 2 µs | 2.0 ms | 1.3 ms | 1.6× faster |
+| 6.7 µs | 6.7 ms | 2.6 ms | 2.6× faster |
+| 67 µs | 67 ms | 14 ms | 4.8× faster |
