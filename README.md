@@ -93,7 +93,7 @@ stream.FromSlice(names).Filter(stream.Not(stream.IsZero[string]))
 |---|---|
 | **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `Range`, `Iterate`, `Generate`, `Concat`, `Empty` |
 | **Intermediate methods** | `Filter`, `Map` (same type), `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted` |
-| **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Min`, `Max`, `FindFirst`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `All` |
+| **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Min`, `Max`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `All` |
 | **Generic functions** | `Map`, `FlatMap`, `Zip`, `Enumerate`, `Chunk`, `Window`, `Scan`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Min`, `Max`, `GroupBy`, `ToMap`, `ToSet`, `ToSeq2`, `Join` |
 | **Predicates** | `IsEven`, `IsOdd`, `IsPositive`, `IsNegative`, `IsZero`, `Equal`, `GreaterThan`, `LessThan`, `AtLeast`, `AtMost`, `Between`, `In`, `Not`, `And`, `Or` |
 

@@ -372,6 +372,27 @@ func (s Stream[T]) FindAny() optional.Optional[T] {
 	return s.FindFirst()
 }
 
+// FindLast returns the last element, or an empty Optional if the stream is empty.
+// Unless the stream comes straight from a slice, it has to consume every element, so
+// bound an infinite stream with Limit or TakeWhile first.
+func (s Stream[T]) FindLast() optional.Optional[T] {
+	if s.seq == nil {
+		if len(s.slice) == 0 {
+			return optional.Empty[T]()
+		}
+		return optional.Of(s.slice[len(s.slice)-1])
+	}
+	var last T
+	found := false
+	for v := range s.seq {
+		last, found = v, true
+	}
+	if !found {
+		return optional.Empty[T]()
+	}
+	return optional.Of(last)
+}
+
 // Count returns the number of elements.
 func (s Stream[T]) Count() int {
 	if s.seq == nil {

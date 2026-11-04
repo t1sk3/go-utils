@@ -89,6 +89,12 @@ func ExampleScan() {
 	// Output: [100 70 120 100]
 }
 
+func ExampleStream_FindLast() {
+	lastEven := stream.Range(0, 10).Filter(stream.IsEven).FindLast()
+	fmt.Println(lastEven.Get())
+	// Output: 8
+}
+
 func ExampleNot() {
 	evens := stream.Range(0, 10).Filter(stream.IsEven)
 	odds := stream.Range(0, 10).Filter(stream.Not(stream.IsEven[int]))
