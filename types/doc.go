@@ -6,6 +6,8 @@
 // The types themselves live in subpackages:
 //
 //   - [github.com/t1sk3/go-utils/types/optional]: Optional, a value that may be absent
+//   - [github.com/t1sk3/go-utils/types/deque]: Deque, a double-ended queue
+//   - [github.com/t1sk3/go-utils/types/pq]: Queue, a priority queue ordered by a comparator
 //   - [github.com/t1sk3/go-utils/types/pair]: Pair, two values of possibly different types
 //   - [github.com/t1sk3/go-utils/types/set]: Set, an unordered collection of distinct values
 //   - [github.com/t1sk3/go-utils/types/constraints]: Integer, Number, Numeric and friends for generic code

@@ -11,6 +11,8 @@ The repository holds two modules:
 |---|---|---|
 | `github.com/t1sk3/go-utils` | [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
 | `github.com/t1sk3/go-utils/types` | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
+| | [`deque`](types/deque) | `Deque[T]`, a double-ended queue that also works as a FIFO queue or a stack |
+| | [`pq`](types/pq) | `Queue[T]`, a priority queue ordered by a comparator |
 | | [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
 | | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
 | | [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
