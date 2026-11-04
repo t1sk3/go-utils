@@ -32,6 +32,48 @@ func Example() {
 	// Output: [dave alice]
 }
 
+func ExampleComparing() {
+	users := []user{{Name: "alice", Age: 31}, {Name: "bob", Age: 17}, {Name: "carol", Age: 31}}
+	byAge := stream.Comparing(func(u user) int { return u.Age })
+	byName := stream.Comparing(func(u user) string { return u.Name })
+
+	// Oldest first, with ties in reverse alphabetical order.
+	sorted := stream.FromSlice(users).Sorted(stream.Reversed(stream.ThenComparing(byAge, byName)))
+	fmt.Println(stream.Map(sorted, func(u user) string { return u.Name }).ToSlice())
+	// Output: [carol alice bob]
+}
+
+func ExampleCountBy() {
+	words := stream.Of("apple", "avocado", "banana")
+	counts := stream.CountBy(words, func(w string) string { return w[:1] })
+	fmt.Println(counts)
+	// Output: map[a:2 b:1]
+}
+
+func ExampleToMapMerge() {
+	type order struct {
+		Customer string
+		Amount   int
+	}
+	orders := stream.Of(order{"ann", 5}, order{"ben", 3}, order{"ann", 2})
+	totals := stream.ToMapMerge(orders,
+		func(o order) string { return o.Customer },
+		func(o order) int { return o.Amount },
+		func(a, b int) int { return a + b })
+	fmt.Println(totals)
+	// Output: map[ann:7 ben:3]
+}
+
+func ExampleRangeClosed() {
+	fmt.Println(stream.RangeClosed(1, 5).ToSlice())
+	// Output: [1 2 3 4 5]
+}
+
+func ExampleAverage() {
+	fmt.Println(stream.Average(stream.Of(1, 2, 6)).Get())
+	// Output: 3
+}
+
 func ExampleIterate() {
 	// Infinite streams are fine as long as something bounds them.
 	fmt.Println(stream.Iterate(1, func(i int) int { return i * 3 }).Limit(5).ToSlice())
