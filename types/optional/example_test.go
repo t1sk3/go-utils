@@ -2,6 +2,7 @@ package optional_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -48,4 +49,17 @@ func ExampleOptional_MarshalJSON() {
 	// Output:
 	// {"Name":"alice","Nickname":"al"}
 	// {"Name":"bob"}
+}
+
+func ExampleOptional_OrElseErr() {
+	errNotFound := errors.New("user not found")
+	_, err := findUser("bob").OrElseErr(errNotFound)
+	fmt.Println(err)
+	// Output: user not found
+}
+
+func ExampleFromMap() {
+	ports := map[string]int{"http": 80}
+	fmt.Println(optional.FromMap(ports, "http").OrElse(-1), optional.FromMap(ports, "gopher").OrElse(-1))
+	// Output: 80 -1
 }

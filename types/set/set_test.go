@@ -128,3 +128,69 @@ func TestJSON(t *testing.T) {
 		t.Errorf("Unmarshal into struct field = %v, %v", wrapped.Tags, err)
 	}
 }
+
+func TestAddAndRemoveCounts(t *testing.T) {
+	var s Set[int]
+	if got := s.Add(1, 2, 2); got != 2 {
+		t.Errorf("Add new values = %d, want 2", got)
+	}
+	if got := s.Add(2, 3); got != 1 {
+		t.Errorf("Add with an existing value = %d, want 1", got)
+	}
+	if got := s.Add(); got != 0 {
+		t.Errorf("Add nothing = %d, want 0", got)
+	}
+	if got := s.Remove(1, 1, 9); got != 1 {
+		t.Errorf("Remove = %d, want 1", got)
+	}
+	var zero Set[int]
+	if got := zero.Remove(1); got != 0 {
+		t.Errorf("Remove on the zero value = %d, want 0", got)
+	}
+}
+
+func TestRemoveIf(t *testing.T) {
+	s := Of(1, 2, 3, 4)
+	if got := s.RemoveIf(func(v int) bool { return v%2 == 0 }); got != 2 {
+		t.Errorf("RemoveIf = %d, want 2", got)
+	}
+	if got := sorted(s); !slices.Equal(got, []int{1, 3}) {
+		t.Errorf("left %v", got)
+	}
+	var zero Set[int]
+	if got := zero.RemoveIf(func(int) bool { return true }); got != 0 {
+		t.Errorf("RemoveIf on the zero value = %d, want 0", got)
+	}
+}
+
+func TestRetainAll(t *testing.T) {
+	s := Of(1, 2, 3)
+	if got := s.RetainAll(Of(2, 3, 4)); got != 1 {
+		t.Errorf("RetainAll = %d, want 1", got)
+	}
+	if got := sorted(s); !slices.Equal(got, []int{2, 3}) {
+		t.Errorf("left %v", got)
+	}
+	if got := s.RetainAll(Set[int]{}); got != 2 || !s.IsEmpty() {
+		t.Errorf("RetainAll of the zero value = %d, left %v", got, s)
+	}
+}
+
+func TestIsSupersetOf(t *testing.T) {
+	s := Of(1, 2, 3)
+	if !s.IsSupersetOf(Of(1, 2)) || !s.IsSupersetOf(s) || !s.IsSupersetOf(Set[int]{}) {
+		t.Error("expected a superset")
+	}
+	if s.IsSupersetOf(Of(1, 4)) || (Set[int]{}).IsSupersetOf(s) {
+		t.Error("unexpected superset")
+	}
+}
+
+func TestIsDisjoint(t *testing.T) {
+	if !Of(1, 2).IsDisjoint(Of(3, 4, 5)) || !Of(1).IsDisjoint(Set[int]{}) || !(Set[int]{}).IsDisjoint(Set[int]{}) {
+		t.Error("expected disjoint sets")
+	}
+	if Of(1, 2).IsDisjoint(Of(2, 3, 4)) || Of(2, 3, 4).IsDisjoint(Of(1, 2)) {
+		t.Error("unexpected disjoint sets")
+	}
+}

@@ -2,6 +2,7 @@ package optional
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 	"testing"
 )
@@ -114,5 +115,31 @@ func TestJSON(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(`{"a":"nope"}`), &d); err == nil {
 		t.Errorf("Unmarshal accepted a mistyped value")
+	}
+}
+
+func TestFromMap(t *testing.T) {
+	m := map[string]int{"a": 1, "zero": 0}
+	if got := FromMap(m, "a"); got != Of(1) {
+		t.Errorf("present key = %v", got)
+	}
+	if got := FromMap(m, "zero"); got != Of(0) {
+		t.Errorf("zero value = %v", got)
+	}
+	if got := FromMap(m, "missing"); got.IsPresent() {
+		t.Errorf("missing key = %v", got)
+	}
+	if got := FromMap[string, int](nil, "a"); got.IsPresent() {
+		t.Errorf("nil map = %v", got)
+	}
+}
+
+func TestOrElseErr(t *testing.T) {
+	errMissing := errors.New("missing")
+	if v, err := Of(1).OrElseErr(errMissing); v != 1 || err != nil {
+		t.Errorf("present = %d, %v", v, err)
+	}
+	if v, err := Empty[int]().OrElseErr(errMissing); v != 0 || !errors.Is(err, errMissing) {
+		t.Errorf("empty = %d, %v", v, err)
 	}
 }

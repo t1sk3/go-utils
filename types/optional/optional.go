@@ -40,6 +40,13 @@ func OfOk[T any](v T, ok bool) Optional[T] {
 	return Of(v)
 }
 
+// FromMap returns an Optional containing m[key], or an empty Optional if key is not in
+// m. A key that is present with a zero value counts as present.
+func FromMap[K comparable, V any](m map[K]V, key K) Optional[V] {
+	v, ok := m[key]
+	return OfOk(v, ok)
+}
+
 // Empty returns an Optional with no value. It is equivalent to the zero value.
 func Empty[T any]() Optional[T] {
 	return Optional[T]{}
@@ -90,6 +97,18 @@ func (o Optional[T]) OrElseGet(supplier func() T) T {
 		return o.value
 	}
 	return supplier()
+}
+
+// OrElseErr returns the contained value and a nil error, or the zero value of T and err
+// if the Optional is empty. It is the error-returning form of Java's orElseThrow:
+//
+//	u, err := findUser(id).OrElseErr(ErrNotFound)
+func (o Optional[T]) OrElseErr(err error) (T, error) {
+	if o.present {
+		return o.value, nil
+	}
+	var zero T
+	return zero, err
 }
 
 // Or returns o if it holds a value, otherwise the Optional produced by supplier.
