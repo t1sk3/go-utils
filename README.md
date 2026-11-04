@@ -12,6 +12,7 @@ The repository holds two modules:
 | `github.com/t1sk3/go-utils` | [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
 | `github.com/t1sk3/go-utils/types` | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
 | | [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
+| | [`sorted`](types/sorted) | `Map[K, V]` and `Set[T]`, kept in comparator order with floor, ceiling and range lookups |
 | | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
 | | [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
 
