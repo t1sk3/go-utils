@@ -90,6 +90,20 @@ func FromMap[K comparable, V any](m map[K]V) Stream[pair.Pair[K, V]] {
 	return s
 }
 
+// FromOptional returns a Stream of the value of o, or an empty Stream if o is empty.
+func FromOptional[T any](o optional.Optional[T]) Stream[T] {
+	if v, ok := o.Value(); ok {
+		return Of(v)
+	}
+	return Stream[T]{}
+}
+
+// OfNullable returns a Stream of *p, or an empty Stream if p is nil. The pointed-to
+// value is copied, so later changes made through p are not observed.
+func OfNullable[T any](p *T) Stream[T] {
+	return FromOptional(optional.OfNullable(p))
+}
+
 // Empty returns a Stream with no elements. It is equivalent to the zero value.
 func Empty[T any]() Stream[T] {
 	return Stream[T]{}
@@ -141,6 +155,19 @@ func Iterate[T any](seed T, next func(T) T) Stream[T] {
 	checkFunc(next == nil, "Iterate")
 	return Stream[T]{size: -1, seq: func(yield func(T) bool) {
 		for v := seed; yield(v); v = next(v) {
+		}
+	}}
+}
+
+// IterateWhile returns a Stream of seed, next(seed), next(next(seed)), ... that ends at
+// the first value for which hasNext reports false. It is the equivalent of a for loop,
+// and is empty if hasNext(seed) is false:
+//
+//	stream.IterateWhile(1, func(i int) bool { return i < 100 }, func(i int) int { return i * 2 })
+func IterateWhile[T any](seed T, hasNext func(T) bool, next func(T) T) Stream[T] {
+	checkFunc(hasNext == nil || next == nil, "IterateWhile")
+	return Stream[T]{size: -1, seq: func(yield func(T) bool) {
+		for v := seed; hasNext(v) && yield(v); v = next(v) {
 		}
 	}}
 }

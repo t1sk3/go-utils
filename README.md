@@ -99,11 +99,11 @@ stream.FromSlice(users).Sorted(stream.ThenComparing(stream.Reversed(byAge), byNa
 
 | | |
 |---|---|
-| **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `Range`, `RangeClosed`, `Iterate`, `Generate`, `Concat`, `Empty` |
+| **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `FromOptional`, `OfNullable`, `Range`, `RangeClosed`, `Iterate`, `IterateWhile`, `Generate`, `Concat`, `Empty` |
 | **Intermediate methods** | `Filter`, `Map` (same type), `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted` |
 | **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Min`, `Max`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `All` |
-| **Generic functions** | `Map`, `FlatMap`, `Zip`, `Enumerate`, `Chunk`, `Window`, `Scan`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Average`, `Min`, `Max`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `ToSet`, `ToSeq2`, `Join` |
-| **Comparators** | `Comparing`, `Reversed`, `ThenComparing` |
+| **Generic functions** | `Map`, `FlatMap`, `Zip`, `Enumerate`, `Chunk`, `Window`, `Scan`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `ToSet`, `ToSeq2`, `Join`, `Identity` |
+| **Comparators** | `Comparing`, `Reversed`, `ThenComparing`, `NilsFirst`, `NilsLast` |
 | **Predicates** | `IsEven`, `IsOdd`, `IsPositive`, `IsNegative`, `IsZero`, `Equal`, `GreaterThan`, `LessThan`, `AtLeast`, `AtMost`, `Between`, `In`, `Not`, `And`, `Or` |
 
 ## optional

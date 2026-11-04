@@ -37,3 +37,37 @@ func ThenComparing[T any](first, second func(a, b T) int) func(a, b T) int {
 		return second(a, b)
 	}
 }
+
+// NilsFirst returns a comparator of pointers that orders nil before everything else
+// and compares other pointers by the values they point to.
+func NilsFirst[T any](comparator func(a, b T) int) func(a, b *T) int {
+	checkFunc(comparator == nil, "NilsFirst")
+	return func(a, b *T) int {
+		switch {
+		case a == nil && b == nil:
+			return 0
+		case a == nil:
+			return -1
+		case b == nil:
+			return 1
+		}
+		return comparator(*a, *b)
+	}
+}
+
+// NilsLast returns a comparator of pointers that orders nil after everything else and
+// compares other pointers by the values they point to.
+func NilsLast[T any](comparator func(a, b T) int) func(a, b *T) int {
+	checkFunc(comparator == nil, "NilsLast")
+	return func(a, b *T) int {
+		switch {
+		case a == nil && b == nil:
+			return 0
+		case a == nil:
+			return 1
+		case b == nil:
+			return -1
+		}
+		return comparator(*a, *b)
+	}
+}

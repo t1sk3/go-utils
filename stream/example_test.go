@@ -149,3 +149,21 @@ func ExampleAnd() {
 	fmt.Println(stream.Of(9, 13, 17, 21).Filter(teens).ToSlice())
 	// Output: [13 17]
 }
+
+func ExampleIterateWhile() {
+	powers := stream.IterateWhile(1, func(i int) bool { return i < 100 }, func(i int) int { return i * 3 })
+	fmt.Println(powers.ToSlice())
+	// Output: [1 3 9 27 81]
+}
+
+func ExampleSummarize() {
+	s := stream.Summarize(stream.Of(3, 1, 2))
+	fmt.Println(s.Count, s.Sum, s.Min, s.Max, s.Average)
+	// Output: 3 6 1 3 2
+}
+
+func ExampleIdentity() {
+	lengths := stream.ToMap(stream.Of("go", "java"), stream.Identity, func(w string) int { return len(w) })
+	fmt.Println(lengths)
+	// Output: map[go:2 java:4]
+}
