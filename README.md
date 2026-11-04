@@ -10,6 +10,8 @@ The repository holds two modules:
 | Module | Package | What it gives you |
 |---|---|---|
 | `github.com/t1sk3/go-utils` | [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
+| | [`future`](future) | `Future[T]`, the typed result of work running on another goroutine, with `All`, `Any` and `Then` |
+| | [`concurrent`](concurrent) | `Map[K, V]`, a typed map with atomic `ComputeIfAbsent`, `Compute` and `Merge` |
 | `github.com/t1sk3/go-utils/types` | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
 | | [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
 | | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
