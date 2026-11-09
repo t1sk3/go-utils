@@ -12,5 +12,6 @@
 //   - [github.com/t1sk3/go-utils/types/sorted]: Map and Set, kept in comparator order
 //   - [github.com/t1sk3/go-utils/types/set]: Set, an unordered collection of distinct values
 //   - [github.com/t1sk3/go-utils/types/linked]: Map and Set that remember insertion order
+//   - [github.com/t1sk3/go-utils/types/vector]: VecN, Vec2 and Vec3, Euclidean vectors with the usual arithmetic
 //   - [github.com/t1sk3/go-utils/types/constraints]: Integer, Number, Numeric and friends for generic code
 package types

@@ -19,6 +19,7 @@ The repository holds two modules:
 | | [`sorted`](types/sorted) | `Map[K, V]` and `Set[T]`, kept in comparator order with floor, ceiling and range lookups |
 | | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
 | | [`linked`](types/linked) | `Map[K, V]` and `Set[T]` that remember insertion order, which also makes an LRU cache simple |
+| | [`vector`](types/vector) | `VecN[T]` of any dimension, plus `Vec2[T]` and `Vec3[T]` with `X`, `Y`, `Z` fields |
 | | [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
 
 `types` holds the shared vocabulary and has no dependencies, so your own libraries
@@ -185,6 +186,30 @@ missing := required.Difference(granted)
 to/from a JSON array. `Add`, `Remove`, `RemoveIf` and `RetainAll` return how many values
 they changed.
 Like a map, copies share storage; use `Clone` for an independent copy.
+
+## vector
+
+```go
+import "github.com/t1sk3/go-utils/types/vector"
+
+pos := vector.Of2(1.0, 2.0)                    // Vec2[float64]{X: 1, Y: 2}
+pos = pos.Add(vel.Scale(dt))
+normal := a.Sub(b).Cross(c.Sub(b)).Normalize() // Vec3
+features := vector.Of(0.2, 0.7, 0.1, 0.9)     // VecN[float64], any dimension
+similarity := math.Cos(features.AngleTo(query))
+```
+
+`Vec2` and `Vec3` are comparable structs that never allocate, so they work as map keys;
+`VecN` is a slice, so it indexes, ranges and works with the `slices` package. All three
+have `Add`, `Sub`, `Mul`, `Div`, `Scale`, `DivScalar`, `Neg`, `Abs`, `Min`, `Max`, `Clamp`,
+`Sum`, `Dot`, `Length`, `LengthSquared`, `Distance`, `DistanceSquared`, `Normalize`, `Lerp`,
+`AngleTo`, `Project`, `Reflect`, `IsZero` and `ApproxEqual`. `Vec3` adds `Cross` and `XY`;
+`Vec2` adds a scalar `Cross`, `Perp`, `Rotate`, `Angle` and `FromPolar`.
+
+Elements can be any integer or float type. Arithmetic stays in `T`; lengths and angles are
+`float64`, and results such as `Normalize` convert back to `T`, so for integer vectors
+convert first with `Convert`, `Convert2` or `Convert3`. Combining `VecN`s of different
+dimensions panics.
 
 ## Performance
 
