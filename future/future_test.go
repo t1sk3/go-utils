@@ -139,25 +139,6 @@ func TestCompletedAndFailed(t *testing.T) {
 
 func TestThen(t *testing.T) {
 	ctx := context.Background()
-	length := func(s string) (int, error) { return len(s), nil }
-	if v, err := Then(Completed("abc"), length).Get(ctx); v != 3 || err != nil {
-		t.Errorf("Then = %d, %v", v, err)
-	}
-	var calls atomic.Int64
-	skipped := Then(Failed[string](errBoom), func(s string) (int, error) {
-		calls.Add(1)
-		return 0, nil
-	})
-	if _, err := skipped.Get(ctx); !errors.Is(err, errBoom) || calls.Load() != 0 {
-		t.Errorf("error = %v after %d calls", err, calls.Load())
-	}
-	if _, err := Then(Completed(1), func(int) (int, error) { panic(errBoom) }).Get(ctx); !errors.Is(err, errBoom) {
-		t.Errorf("panic in Then = %v", err)
-	}
-}
-
-func TestThenMethod(t *testing.T) {
-	ctx := context.Background()
 	// The method can change the type at each step, so calls chain.
 	label, err := Completed("abc").
 		Then(func(s string) (int, error) { return len(s), nil }).
@@ -261,9 +242,8 @@ func TestAnyNoFuturesAndContext(t *testing.T) {
 
 func TestNilFunctions(t *testing.T) {
 	for name, f := range map[string]func(){
-		"Go":          func() { Go[int](nil) },
-		"Then":        func() { Then[int, int](Completed(1), nil) },
-		"Then method": func() { Completed(1).Then[int](nil) },
+		"Go":   func() { Go[int](nil) },
+		"Then": func() { Completed(1).Then[int](nil) },
 	} {
 		func() {
 			defer func() {

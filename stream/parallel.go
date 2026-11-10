@@ -63,25 +63,6 @@ func (s Stream[T]) Parallel(n int) ParallelStream[T] {
 	}}
 }
 
-// ParallelMap returns a ParallelStream of the results of applying mapper to each
-// element of p. It is the function form of ParallelStream.Map.
-func ParallelMap[T, R any](p ParallelStream[T], mapper func(T) R) ParallelStream[R] {
-	checkFunc(mapper == nil, "ParallelMap")
-	return parallelStage(p, p.size, func(v T) (R, bool) { return mapper(v), true })
-}
-
-// MapConcurrent applies mapper to the elements of s on at most n goroutines at once and
-// returns the results in order. It is shorthand for one parallel stage, the counterpart
-// of Java's Gatherers.mapConcurrent:
-//
-//	pages := urls.MapConcurrent(8, fetch)
-//
-// See ParallelStream for what this guarantees. MapConcurrent panics if n is not positive.
-func MapConcurrent[T, R any](s Stream[T], n int, mapper func(T) R) Stream[R] {
-	checkFunc(mapper == nil, "MapConcurrent")
-	return ParallelMap(s.Parallel(n), mapper).Sequential()
-}
-
 // Filter returns a ParallelStream of the elements that satisfy predicate.
 func (p ParallelStream[T]) Filter(predicate func(T) bool) ParallelStream[T] {
 	checkFunc(predicate == nil, "Filter")
@@ -89,9 +70,10 @@ func (p ParallelStream[T]) Filter(predicate func(T) bool) ParallelStream[T] {
 }
 
 // Map returns a ParallelStream of the results of applying mapper to each element. The
-// result may have a different element type. It is the method form of ParallelMap.
+// result may have a different element type.
 func (p ParallelStream[T]) Map[R any](mapper func(T) R) ParallelStream[R] {
-	return ParallelMap(p, mapper)
+	checkFunc(mapper == nil, "Map")
+	return parallelStage(p, p.size, func(v T) (R, bool) { return mapper(v), true })
 }
 
 // Peek returns a ParallelStream that calls action on each element as a parallel stage.

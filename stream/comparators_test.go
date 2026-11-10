@@ -149,11 +149,11 @@ func TestAverage(t *testing.T) {
 }
 
 func TestCountBy(t *testing.T) {
-	got := CountBy(Of("a", "bb", "c", "dd", "eee"), func(s string) int { return len(s) })
+	got := Of("a", "bb", "c", "dd", "eee").CountBy(func(s string) int { return len(s) })
 	if want := map[int]int{1: 2, 2: 2, 3: 1}; !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
-	if got := CountBy(Empty[string](), func(s string) int { return len(s) }); got == nil || len(got) != 0 {
+	if got := Empty[string]().CountBy(func(s string) int { return len(s) }); got == nil || len(got) != 0 {
 		t.Errorf("empty stream: got %#v, want an empty non-nil map", got)
 	}
 }
@@ -161,7 +161,7 @@ func TestCountBy(t *testing.T) {
 func TestToMapMerge(t *testing.T) {
 	id := func(s string) string { return s }
 	first := func(s string) byte { return s[0] }
-	got := ToMapMerge(Of("apple", "avocado", "banana", "apricot"), first, id,
+	got := Of("apple", "avocado", "banana", "apricot").ToMapMerge(first, id,
 		func(existing, next string) string { return existing + "," + next })
 	want := map[byte]string{'a': "apple,avocado,apricot", 'b': "banana"}
 	if !reflect.DeepEqual(got, want) {
@@ -170,13 +170,13 @@ func TestToMapMerge(t *testing.T) {
 
 	// merge must also run when the existing value is the zero value.
 	calls := 0
-	ToMapMerge(Of(0, 0), func(v int) int { return v }, func(v int) int { return v },
+	Of(0, 0).ToMapMerge(func(v int) int { return v }, func(v int) int { return v },
 		func(a, b int) int { calls++; return a + b })
 	if calls != 1 {
 		t.Errorf("merge called %d times, want 1", calls)
 	}
 
-	if got := ToMapMerge(Empty[string](), id, id, func(a, _ string) string { return a }); got == nil || len(got) != 0 {
+	if got := Empty[string]().ToMapMerge(id, id, func(a, _ string) string { return a }); got == nil || len(got) != 0 {
 		t.Errorf("empty stream: got %#v, want an empty non-nil map", got)
 	}
 }
@@ -189,10 +189,10 @@ func TestBatchOne_NilFunctionPanics(t *testing.T) {
 		"Reversed":             func() { Reversed[int](nil) },
 		"ThenComparing first":  func() { ThenComparing(nil, cmpInts) },
 		"ThenComparing second": func() { ThenComparing(cmpInts, nil) },
-		"CountBy":              func() { CountBy[int, int](Of(1), nil) },
-		"ToMapMerge key":       func() { ToMapMerge[int, int](Of(1), nil, self, cmpInts) },
-		"ToMapMerge value":     func() { ToMapMerge(Of(1), self, nil, cmpInts) },
-		"ToMapMerge merge":     func() { ToMapMerge(Of(1), self, self, nil) },
+		"CountBy":              func() { Of(1).CountBy[int](nil) },
+		"ToMapMerge key":       func() { Of(1).ToMapMerge[int](nil, self, cmpInts) },
+		"ToMapMerge value":     func() { Of(1).ToMapMerge(self, nil, cmpInts) },
+		"ToMapMerge merge":     func() { Of(1).ToMapMerge(self, self, nil) },
 	} {
 		func() {
 			defer func() {

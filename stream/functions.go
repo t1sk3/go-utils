@@ -12,77 +12,13 @@ import (
 	"github.com/t1sk3/go-utils/types/set"
 )
 
-// This file holds the package-level functions. Those that only introduce a new type
-// parameter, such as Map and Fold, also have a method form in methods.go; those that
-// constrain T, and Enumerate, Chunk, Window and Zip, exist only here.
-
-// Map returns a Stream of the results of applying mapper to each element of s.
-func Map[T, R any](s Stream[T], mapper func(T) R) Stream[R] {
-	checkFunc(mapper == nil, "Map")
-	src := s.All()
-	return Stream[R]{size: s.size, seq: func(yield func(R) bool) {
-		for v := range src {
-			if !yield(mapper(v)) {
-				return
-			}
-		}
-	}}
-}
-
-// FlatMap returns a Stream of the elements of each stream produced by applying
-// mapper to the elements of s.
-func FlatMap[T, R any](s Stream[T], mapper func(T) Stream[R]) Stream[R] {
-	checkFunc(mapper == nil, "FlatMap")
-	src := s.All()
-	return Stream[R]{size: -1, seq: func(yield func(R) bool) {
-		for v := range src {
-			for r := range mapper(v).All() {
-				if !yield(r) {
-					return
-				}
-			}
-		}
-	}}
-}
+// This file holds the operations that cannot be methods on Stream: those that
+// constrain T, and Enumerate, Chunk, Window and Zip. See methods.go for why.
 
 // Distinct returns a Stream of the elements of s with duplicates removed, keeping
 // the first occurrence of each.
 func Distinct[T comparable](s Stream[T]) Stream[T] {
-	return DistinctBy(s, func(v T) T { return v })
-}
-
-// DistinctBy returns a Stream of the elements of s whose key is not shared by an
-// earlier element. Use it for element types that are not comparable.
-func DistinctBy[T any, K comparable](s Stream[T], key func(T) K) Stream[T] {
-	checkFunc(key == nil, "DistinctBy")
-	src := s.All()
-	hint := max(s.size, 0)
-	return Stream[T]{size: -1, seq: func(yield func(T) bool) {
-		seen := make(map[K]struct{}, hint)
-		for v := range src {
-			k := key(v)
-			if _, dup := seen[k]; dup {
-				continue
-			}
-			seen[k] = struct{}{}
-			if !yield(v) {
-				return
-			}
-		}
-	}}
-}
-
-// Fold combines the elements of s from left to right, starting from initial. Unlike
-// Stream.Reduce, the result may have a different type than the elements:
-//
-//	totalLen := stream.Fold(words, 0, func(n int, w string) int { return n + len(w) })
-func Fold[T, A any](s Stream[T], initial A, accumulator func(acc A, v T) A) A {
-	checkFunc(accumulator == nil, "Fold")
-	acc := initial
-	for v := range s.All() {
-		acc = accumulator(acc, v)
-	}
-	return acc
+	return s.DistinctBy(func(v T) T { return v })
 }
 
 // Sum returns the sum of the elements of s, or zero for an empty stream.
@@ -166,61 +102,10 @@ func Max[T cmp.Ordered](s Stream[T]) optional.Optional[T] {
 	return s.Max(cmp.Compare[T])
 }
 
-// GroupBy collects the elements of s into a map from key to the elements with that
-// key, preserving their order.
-func GroupBy[T any, K comparable](s Stream[T], key func(T) K) map[K][]T {
-	checkFunc(key == nil, "GroupBy")
-	groups := make(map[K][]T)
-	for v := range s.All() {
-		k := key(v)
-		groups[k] = append(groups[k], v)
-	}
-	return groups
-}
-
-// CountBy returns the number of elements of s for each key.
-func CountBy[T any, K comparable](s Stream[T], key func(T) K) map[K]int {
-	checkFunc(key == nil, "CountBy")
-	counts := make(map[K]int)
-	for v := range s.All() {
-		counts[key(v)]++
-	}
-	return counts
-}
-
-// ToMap collects the elements of s into a map. If several elements produce the same
-// key, the last one wins. Use ToMapMerge to combine them instead.
-func ToMap[T any, K comparable, V any](s Stream[T], key func(T) K, value func(T) V) map[K]V {
-	checkFunc(key == nil || value == nil, "ToMap")
-	m := make(map[K]V, max(s.size, 0))
-	for v := range s.All() {
-		m[key(v)] = value(v)
-	}
-	return m
-}
-
-// ToMapMerge collects the elements of s into a map. If several elements produce the
-// same key, their values are combined from left to right with merge:
-//
-//	totals := stream.ToMapMerge(orders, Order.Customer, Order.Amount,
-//		func(a, b int) int { return a + b })
-func ToMapMerge[T any, K comparable, V any](s Stream[T], key func(T) K, value func(T) V, merge func(existing, next V) V) map[K]V {
-	checkFunc(key == nil || value == nil || merge == nil, "ToMapMerge")
-	m := make(map[K]V, max(s.size, 0))
-	for v := range s.All() {
-		k, val := key(v), value(v)
-		if existing, ok := m[k]; ok {
-			val = merge(existing, val)
-		}
-		m[k] = val
-	}
-	return m
-}
-
 // Identity returns v unchanged. It is useful as a key or value function when the
 // element itself is what you want:
 //
-//	lengths := stream.ToMap(words, stream.Identity, func(w string) int { return len(w) })
+//	lengths := words.ToMap(stream.Identity, func(w string) int { return len(w) })
 func Identity[T any](v T) T {
 	return v
 }
@@ -365,26 +250,6 @@ func Window[T any](s Stream[T], n int) Stream[[]T] {
 			}
 			buf = append(buf, v)
 			if len(buf) == n && !yield(slices.Clone(buf)) {
-				return
-			}
-		}
-	}}
-}
-
-// Scan returns a Stream of the running results of combining the elements of s from
-// left to right, starting from initial. It is like Fold, but yields every
-// intermediate result instead of only the last one, and works on infinite streams.
-// The output has one element per input element and does not include initial.
-//
-//	stream.Scan(stream.Of(1, 2, 3), 0, func(sum, v int) int { return sum + v }) // 1 3 6
-func Scan[T, A any](s Stream[T], initial A, accumulator func(acc A, v T) A) Stream[A] {
-	checkFunc(accumulator == nil, "Scan")
-	src := s.All()
-	return Stream[A]{size: s.size, seq: func(yield func(A) bool) {
-		acc := initial
-		for v := range src {
-			acc = accumulator(acc, v)
-			if !yield(acc) {
 				return
 			}
 		}

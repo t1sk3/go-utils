@@ -42,11 +42,11 @@ func TestParallelKeepsOrder(t *testing.T) {
 	for i := range delays {
 		delays[i] = time.Duration(rng.IntN(500)) * time.Microsecond
 	}
-	got := MapConcurrent(Range(0, 200), 16, func(i int) int {
+	got := Range(0, 200).MapConcurrent(16, func(i int) int {
 		time.Sleep(delays[i])
 		return i * 2
 	}).ToSlice()
-	want := Map(Range(0, 200), func(i int) int { return i * 2 }).ToSlice()
+	want := Range(0, 200).Map(func(i int) int { return i * 2 }).ToSlice()
 	if !slices.Equal(got, want) {
 		t.Errorf("got %v", got)
 	}
@@ -62,7 +62,7 @@ func TestParallelRunsConcurrently(t *testing.T) {
 		arrived.Wait()
 		close(released)
 	}()
-	got := MapConcurrent(Range(0, n), n, func(i int) int {
+	got := Range(0, n).MapConcurrent(n, func(i int) int {
 		arrived.Done()
 		select {
 		case <-released:
@@ -79,7 +79,7 @@ func TestParallelRunsConcurrently(t *testing.T) {
 func TestParallelLimitsConcurrency(t *testing.T) {
 	for _, n := range []int{1, 2, 7} {
 		var running, peak atomic.Int64
-		MapConcurrent(Range(0, 100), n, func(i int) int {
+		Range(0, 100).MapConcurrent(n, func(i int) int {
 			current := running.Add(1)
 			defer running.Add(-1)
 			for {
@@ -99,11 +99,10 @@ func TestParallelLimitsConcurrency(t *testing.T) {
 
 func TestParallelStages(t *testing.T) {
 	var peeked atomic.Int64
-	got := ParallelMap(
-		Range(0, 10).Parallel(3).
-			Filter(IsEven[int]).
-			Map(func(i int) int { return i + 1 }).
-			Peek(func(int) { peeked.Add(1) }),
+	got := Range(0, 10).Parallel(3).
+		Filter(IsEven[int]).
+		Map(func(i int) int { return i + 1 }).
+		Peek(func(int) { peeked.Add(1) }).Map(
 		func(i int) string { return fmt.Sprint(i) },
 	).ToSlice()
 	if want := []string{"1", "3", "5", "7", "9"}; !slices.Equal(got, want) {
@@ -146,7 +145,7 @@ func TestParallelInfiniteSourceStops(t *testing.T) {
 	before := runtime.NumGoroutine()
 	var calls atomic.Int64
 	const n = 4
-	got := MapConcurrent(Iterate(0, func(i int) int { return i + 1 }), n, func(i int) int {
+	got := Iterate(0, func(i int) int { return i + 1 }).MapConcurrent(n, func(i int) int {
 		calls.Add(1)
 		return i
 	}).Limit(10).ToSlice()
@@ -175,7 +174,7 @@ func TestParallelBoundsReadAhead(t *testing.T) {
 
 func TestParallelStopsWithoutLeaks(t *testing.T) {
 	before := runtime.NumGoroutine()
-	s := MapConcurrent(Range(0, 1000), 8, func(i int) int { return i })
+	s := Range(0, 1000).MapConcurrent(8, func(i int) int { return i })
 	if got := s.FindFirst().MustGet(); got != 0 {
 		t.Errorf("FindFirst = %d", got)
 	}
@@ -187,7 +186,7 @@ func TestParallelStopsWithoutLeaks(t *testing.T) {
 
 func TestParallelWaitsForRunningCalls(t *testing.T) {
 	var running atomic.Int64
-	MapConcurrent(Iterate(0, func(i int) int { return i + 1 }), 4, func(i int) int {
+	Iterate(0, func(i int) int { return i + 1 }).MapConcurrent(4, func(i int) int {
 		running.Add(1)
 		defer running.Add(-1)
 		time.Sleep(5 * time.Millisecond)
@@ -199,7 +198,7 @@ func TestParallelWaitsForRunningCalls(t *testing.T) {
 }
 
 func TestParallelIsReusable(t *testing.T) {
-	s := MapConcurrent(Of(1, 2, 3), 2, func(i int) int { return i * i })
+	s := Of(1, 2, 3).MapConcurrent(2, func(i int) int { return i * i })
 	for range 3 {
 		if got := s.ToSlice(); !slices.Equal(got, []int{1, 4, 9}) {
 			t.Errorf("got %v", got)
@@ -211,7 +210,7 @@ func TestParallelStagePanic(t *testing.T) {
 	before := runtime.NumGoroutine()
 	var got []int
 	value := mustPanic(t, func() {
-		MapConcurrent(Range(0, 100), 4, func(i int) int {
+		Range(0, 100).MapConcurrent(4, func(i int) int {
 			if i == 5 {
 				panic("boom")
 			}
@@ -252,7 +251,7 @@ func TestParallelSourcePanic(t *testing.T) {
 func TestParallelConsumerPanic(t *testing.T) {
 	before := runtime.NumGoroutine()
 	value := mustPanic(t, func() {
-		MapConcurrent(Range(0, 100), 4, func(i int) int { return i }).ForEach(func(int) { panic("consumer failed") })
+		Range(0, 100).MapConcurrent(4, func(i int) int { return i }).ForEach(func(int) { panic("consumer failed") })
 	})
 	if value != "consumer failed" {
 		t.Errorf("panic value = %v", value)
@@ -263,7 +262,7 @@ func TestParallelConsumerPanic(t *testing.T) {
 func TestParallelGoexit(t *testing.T) {
 	before := runtime.NumGoroutine()
 	stage := mustPanic(t, func() {
-		MapConcurrent(Of(1), 2, func(i int) int {
+		Of(1).MapConcurrent(2, func(i int) int {
 			runtime.Goexit()
 			return i
 		}).Count()
@@ -287,7 +286,7 @@ func TestParallelEmptyAndZeroValue(t *testing.T) {
 	if got := zero.Filter(IsEven[int]).Map(func(i int) int { return i }).Sequential().Count(); got != 0 {
 		t.Errorf("zero value gave %d elements", got)
 	}
-	if got := ParallelMap(zero, func(i int) string { return "" }).ToSlice(); len(got) != 0 {
+	if got := zero.Map(func(i int) string { return "" }).ToSlice(); len(got) != 0 {
 		t.Errorf("ParallelMap of the zero value = %v", got)
 	}
 }
@@ -308,9 +307,8 @@ func TestParallelRejectsBadArguments(t *testing.T) {
 	for name, f := range map[string]func(){
 		"zero n":             func() { Of(1).Parallel(0) },
 		"negative n":         func() { Of(1).Parallel(-1) },
-		"MapConcurrent n":    func() { MapConcurrent(Of(1), 0, inc) },
-		"MapConcurrent func": func() { MapConcurrent[int, int](Of(1), 1, nil) },
-		"ParallelMap":        func() { ParallelMap[int, int](p, nil) },
+		"MapConcurrent n":    func() { Of(1).MapConcurrent(0, inc) },
+		"MapConcurrent func": func() { Of(1).MapConcurrent[int](1, nil) },
 		"Filter":             func() { p.Filter(nil) },
 		"Map":                func() { p.Map[int](nil) },
 		"Peek":               func() { p.Peek(nil) },
@@ -333,13 +331,13 @@ func benchmarkMap(b *testing.B, iterations int) {
 	mapper := func(i int) int { return spin(i, iterations) }
 	b.Run("sequential", func(b *testing.B) {
 		for b.Loop() {
-			Map(values, mapper).Count()
+			values.Map(mapper).Count()
 		}
 	})
 	b.Run("parallel", func(b *testing.B) {
 		n := runtime.GOMAXPROCS(0)
 		for b.Loop() {
-			MapConcurrent(values, n, mapper).Count()
+			values.MapConcurrent(n, mapper).Count()
 		}
 	})
 }

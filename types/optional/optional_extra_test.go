@@ -77,22 +77,6 @@ func TestMustGetPanicsWhenEmpty(t *testing.T) {
 }
 
 func TestMapAndFlatMap(t *testing.T) {
-	if got := Map(Of(21), func(i int) string { return strconv.Itoa(i * 2) }); got.Get() != "42" {
-		t.Errorf("Map = %v", got)
-	}
-	if Map(Empty[int](), strconv.Itoa).IsPresent() {
-		t.Errorf("Map of empty is present")
-	}
-	parse := func(s string) Optional[int] {
-		i, err := strconv.Atoi(s)
-		return OfOk(i, err == nil)
-	}
-	if FlatMap(Of("12"), parse).Get() != 12 || FlatMap(Of("x"), parse).IsPresent() {
-		t.Errorf("FlatMap wrong")
-	}
-}
-
-func TestMapAndFlatMapMethods(t *testing.T) {
 	// The methods can change the type at each step, so calls chain.
 	if got := Of(21).Map(func(i int) int { return i * 2 }).Map(strconv.Itoa); got != Of("42") {
 		t.Errorf("Map chain = %v", got)
@@ -114,7 +98,7 @@ func TestMapAndFlatMapMethods(t *testing.T) {
 	if got := Empty[string]().FlatMap(parse); got.IsPresent() {
 		t.Errorf("FlatMap of empty = %v", got)
 	}
-	// Like the functions, the methods only call f when a value is present, so a nil f
+	// Map and FlatMap only call f when a value is present, so a nil f
 	// is fine on an empty Optional and panics on a present one.
 	if Empty[int]().Map[string](nil).IsPresent() || Empty[int]().FlatMap[string](nil).IsPresent() {
 		t.Error("nil f on empty Optional produced a value")

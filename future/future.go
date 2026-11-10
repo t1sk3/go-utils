@@ -94,21 +94,16 @@ func Failed[T any](err error) *Future[T] {
 //
 // Then panics if fn is nil.
 func (f *Future[T]) Then[R any](fn func(T) (R, error)) *Future[R] {
-	return Then(f, fn)
-}
-
-// Then is the function form of Future.Then.
-func Then[T, R any](fut *Future[T], f func(T) (R, error)) *Future[R] {
-	if f == nil {
+	if fn == nil {
 		panic("future: Then requires a non-nil function")
 	}
 	return Go(func() (R, error) {
-		<-fut.done
-		if fut.err != nil {
+		<-f.done
+		if f.err != nil {
 			var zero R
-			return zero, fut.err
+			return zero, f.err
 		}
-		return f(fut.value)
+		return fn(f.value)
 	})
 }
 

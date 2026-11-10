@@ -11,18 +11,18 @@ func ExampleGroupingBy() {
 	byActive := func(u user) bool { return u.Active }
 	age := func(u user) int { return u.Age }
 
-	fmt.Println(stream.Collect(users, stream.GroupingBy(byActive, stream.Summing(age))))
+	fmt.Println(users.Collect(stream.GroupingBy(byActive, stream.Summing(age))))
 	// Output: map[false:45 true:48]
 }
 
 func ExamplePartitioningBy() {
-	parts := stream.Collect(stream.Range(0, 5), stream.PartitioningBy(stream.IsEven[int], stream.Counting[int]()))
+	parts := stream.Range(0, 5).Collect(stream.PartitioningBy(stream.IsEven[int], stream.Counting[int]()))
 	fmt.Println(parts[true], parts[false])
 	// Output: 3 2
 }
 
 func ExampleTeeing() {
-	mean := stream.Collect(stream.Of(2, 4, 9), stream.Teeing(
+	mean := stream.Of(2, 4, 9).Collect(stream.Teeing(
 		stream.Summing(func(i int) int { return i }),
 		stream.Counting[int](),
 		func(sum, count int) int { return sum / count },

@@ -157,13 +157,13 @@ func TestWindow(t *testing.T) {
 
 func TestScan(t *testing.T) {
 	sum := func(acc, v int) int { return acc + v }
-	if got := Scan(Of(1, 2, 3), 0, sum).ToSlice(); !slices.Equal(got, []int{1, 3, 6}) {
+	if got := Of(1, 2, 3).Scan(0, sum).ToSlice(); !slices.Equal(got, []int{1, 3, 6}) {
 		t.Errorf("Scan = %v", got)
 	}
-	if got := Scan(Empty[int](), 10, sum).ToSlice(); len(got) != 0 {
+	if got := Empty[int]().Scan(10, sum).ToSlice(); len(got) != 0 {
 		t.Errorf("Scan of empty = %v", got)
 	}
-	s := Scan(Iterate(1, func(i int) int { return i + 1 }), 0, sum).Limit(4)
+	s := Iterate(1, func(i int) int { return i + 1 }).Scan(0, sum).Limit(4)
 	if first, second := s.ToSlice(), s.ToSlice(); !slices.Equal(first, []int{1, 3, 6, 10}) || !slices.Equal(first, second) {
 		t.Errorf("Scan over infinite stream = %v then %v, want [1 3 6 10] twice", first, second)
 	}
@@ -182,7 +182,7 @@ func TestPartition(t *testing.T) {
 
 func TestNewOperations_NilFunctionPanics(t *testing.T) {
 	for name, f := range map[string]func(){
-		"Scan":      func() { Scan[int, int](Of(1), 0, nil) },
+		"Scan":      func() { Of(1).Scan[int](0, nil) },
 		"Partition": func() { Of(1).Partition(nil) },
 		"Chunk(0)":  func() { Chunk(Of(1), 0) },
 		"Window(0)": func() { Window(Of(1), -1) },

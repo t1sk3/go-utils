@@ -34,9 +34,9 @@ func Example() {
 	// no user bob
 }
 
-func ExampleMap() {
-	upper := optional.Map(findUser("alice"), func(u user) string { return strings.ToUpper(u.Name) })
-	missing := optional.Map(findUser("bob"), func(u user) string { return u.Name })
+func ExampleOptional_Map() {
+	upper := findUser("alice").Map(func(u user) string { return strings.ToUpper(u.Name) })
+	missing := findUser("bob").Map(func(u user) string { return u.Name })
 	fmt.Println(upper.OrElse("?"), missing.OrElse("anonymous"))
 	// Output: ALICE anonymous
 }
@@ -64,9 +64,8 @@ func ExampleFromMap() {
 	// Output: 80 -1
 }
 
-func ExampleOptional_Map() {
+func ExampleOptional_FlatMap() {
 	nickname := findUser("alice").FlatMap(func(u user) optional.Optional[string] { return u.Nickname })
-	initial := findUser("bob").Map(func(u user) byte { return u.Name[0] })
-	fmt.Println(nickname.OrElse("none"), initial.IsPresent())
-	// Output: al false
+	fmt.Println(nickname.OrElse("none"))
+	// Output: al
 }

@@ -26,7 +26,7 @@ func TestFilter(t *testing.T) {
 
 func TestMap(t *testing.T) {
 	s := FromSlice([]int{1, 2, 3})
-	mapped := Map(s, func(i int) string { return strconv.Itoa(i * 2) }).ToSlice()
+	mapped := s.Map(func(i int) string { return strconv.Itoa(i * 2) }).ToSlice()
 	expected := []string{"2", "4", "6"}
 	if !reflect.DeepEqual(mapped, expected) {
 		t.Errorf("Map failed: got %v, want %v", mapped, expected)

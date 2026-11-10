@@ -38,24 +38,24 @@ func ExampleComparing() {
 
 	// Oldest first, with ties in reverse alphabetical order.
 	sorted := stream.FromSlice(users).Sorted(stream.Reversed(stream.ThenComparing(byAge, byName)))
-	fmt.Println(stream.Map(sorted, func(u user) string { return u.Name }).ToSlice())
+	fmt.Println(sorted.Map(func(u user) string { return u.Name }).ToSlice())
 	// Output: [carol alice bob]
 }
 
-func ExampleCountBy() {
+func ExampleStream_CountBy() {
 	words := stream.Of("apple", "avocado", "banana")
-	counts := stream.CountBy(words, func(w string) string { return w[:1] })
+	counts := words.CountBy(func(w string) string { return w[:1] })
 	fmt.Println(counts)
 	// Output: map[a:2 b:1]
 }
 
-func ExampleToMapMerge() {
+func ExampleStream_ToMapMerge() {
 	type order struct {
 		Customer string
 		Amount   int
 	}
 	orders := stream.Of(order{"ann", 5}, order{"ben", 3}, order{"ann", 2})
-	totals := stream.ToMapMerge(orders,
+	totals := orders.ToMapMerge(
 		func(o order) string { return o.Customer },
 		func(o order) int { return o.Amount },
 		func(a, b int) int { return a + b })
@@ -77,12 +77,6 @@ func ExampleIterate() {
 	// Infinite streams are fine as long as something bounds them.
 	fmt.Println(stream.Iterate(1, func(i int) int { return i * 3 }).Limit(5).ToSlice())
 	// Output: [1 3 9 27 81]
-}
-
-func ExampleGroupBy() {
-	byLen := stream.GroupBy(stream.Of("go", "rust", "zig", "java"), func(s string) int { return len(s) })
-	fmt.Println(byLen[3], byLen[4])
-	// Output: [zig] [rust java]
 }
 
 func ExampleStream_All() {
@@ -115,15 +109,15 @@ func ExampleChunk() {
 
 func ExampleWindow() {
 	prices := stream.Of(10.0, 12.0, 11.0, 15.0)
-	movingAvg := stream.Map(stream.Window(prices, 2), func(w []float64) float64 {
+	movingAvg := stream.Window(prices, 2).Map(func(w []float64) float64 {
 		return (w[0] + w[1]) / 2
 	})
 	fmt.Println(movingAvg.ToSlice())
 	// Output: [11 11.5 13]
 }
 
-func ExampleScan() {
-	balance := stream.Scan(stream.Of(100, -30, 50, -20), 0, func(total, change int) int {
+func ExampleStream_Scan() {
+	balance := stream.Of(100, -30, 50, -20).Scan(0, func(total, change int) int {
 		return total + change
 	})
 	fmt.Println(balance.ToSlice())
@@ -162,7 +156,7 @@ func ExampleSummarize() {
 }
 
 func ExampleIdentity() {
-	lengths := stream.ToMap(stream.Of("go", "java"), stream.Identity, func(w string) int { return len(w) })
+	lengths := stream.Of("go", "java").ToMap(stream.Identity, func(w string) int { return len(w) })
 	fmt.Println(lengths)
 	// Output: map[go:2 java:4]
 }

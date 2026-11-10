@@ -154,10 +154,10 @@ func TestSourceConstructors(t *testing.T) {
 func TestGenericFunctions(t *testing.T) {
 	words := Of("go", "is", "fun", "go")
 
-	if got := FlatMap(Of(1, 2), func(i int) Stream[int] { return Of(i, i*10) }).ToSlice(); !reflect.DeepEqual(got, []int{1, 10, 2, 20}) {
+	if got := Of(1, 2).FlatMap(func(i int) Stream[int] { return Of(i, i*10) }).ToSlice(); !reflect.DeepEqual(got, []int{1, 10, 2, 20}) {
 		t.Errorf("FlatMap = %v", got)
 	}
-	if got := Fold(words, 0, func(n int, w string) int { return n + len(w) }); got != 9 {
+	if got := words.Fold(0, func(n int, w string) int { return n + len(w) }); got != 9 {
 		t.Errorf("Fold = %d, want 9", got)
 	}
 	if got := Sum(Of(1.5, 2.5)); got != 4 {
@@ -175,14 +175,14 @@ func TestGenericFunctions(t *testing.T) {
 	if got := Join(Distinct(words), ","); got != "go,is,fun" {
 		t.Errorf("Join(Distinct) = %q", got)
 	}
-	if got := DistinctBy(words, func(w string) int { return len(w) }).ToSlice(); !reflect.DeepEqual(got, []string{"go", "fun"}) {
+	if got := words.DistinctBy(func(w string) int { return len(w) }).ToSlice(); !reflect.DeepEqual(got, []string{"go", "fun"}) {
 		t.Errorf("DistinctBy = %v", got)
 	}
-	groups := GroupBy(words, func(w string) int { return len(w) })
+	groups := words.GroupBy(func(w string) int { return len(w) })
 	if !reflect.DeepEqual(groups, map[int][]string{2: {"go", "is", "go"}, 3: {"fun"}}) {
 		t.Errorf("GroupBy = %v", groups)
 	}
-	m := ToMap(words, strings.ToUpper, func(w string) int { return len(w) })
+	m := words.ToMap(strings.ToUpper, func(w string) int { return len(w) })
 	if !reflect.DeepEqual(m, map[string]int{"GO": 2, "IS": 2, "FUN": 3}) {
 		t.Errorf("ToMap = %v", m)
 	}
