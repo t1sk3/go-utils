@@ -3,24 +3,22 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/t1sk3/go-utils.svg)](https://pkg.go.dev/github.com/t1sk3/go-utils)
 [![CI](https://github.com/t1sk3/go-utils/actions/workflows/ci.yml/badge.svg)](https://github.com/t1sk3/go-utils/actions/workflows/ci.yml)
 
-Small, dependency-free generic utilities for Go 1.24+.
+Small, dependency-free generic utilities. Requires Go 1.27 or later.
 
-The repository holds two modules:
-
-| Module | Package | What it gives you |
-|---|---|---|
-| `github.com/t1sk3/go-utils` | [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
-| | [`future`](future) | `Future[T]`, the typed result of work running on another goroutine, with `All`, `Any` and `Then` |
-| | [`concurrent`](concurrent) | `Map[K, V]`, a typed map with atomic `ComputeIfAbsent`, `Compute` and `Merge` |
-| `github.com/t1sk3/go-utils/types` | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
-| | [`deque`](types/deque) | `Deque[T]`, a double-ended queue that also works as a FIFO queue or a stack |
-| | [`pq`](types/pq) | `Queue[T]`, a priority queue ordered by a comparator |
-| | [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
-| | [`sorted`](types/sorted) | `Map[K, V]` and `Set[T]`, kept in comparator order with floor, ceiling and range lookups |
-| | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
-| | [`linked`](types/linked) | `Map[K, V]` and `Set[T]` that remember insertion order, which also makes an LRU cache simple |
-| | [`vector`](types/vector) | `VecN[T]` of any dimension, plus `Vec2[T]` and `Vec3[T]` with `X`, `Y`, `Z` fields |
-| | [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
+| Package | What it gives you |
+|---|---|
+| [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
+| [`future`](future) | `Future[T]`, the typed result of work running on another goroutine, with `All`, `Any` and `Then` |
+| [`concurrent`](concurrent) | `Map[K, V]`, a typed map with atomic `ComputeIfAbsent`, `Compute` and `Merge` |
+| [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
+| [`deque`](types/deque) | `Deque[T]`, a double-ended queue that also works as a FIFO queue or a stack |
+| [`pq`](types/pq) | `Queue[T]`, a priority queue ordered by a comparator |
+| [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
+| [`sorted`](types/sorted) | `Map[K, V]` and `Set[T]`, kept in comparator order with floor, ceiling and range lookups |
+| [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
+| [`linked`](types/linked) | `Map[K, V]` and `Set[T]` that remember insertion order, which also makes an LRU cache simple |
+| [`vector`](types/vector) | `VecN[T]` of any dimension, plus `Vec2[T]` and `Vec3[T]` with `X`, `Y`, `Z` fields |
+| [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
 
 Everything is one module, so a single `go get` gives you all packages:
 
