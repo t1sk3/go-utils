@@ -21,12 +21,11 @@ func Example() {
 		{"dave", 25, true},
 	}
 
-	names := stream.Map(
-		stream.FromSlice(users).
-			Filter(func(u user) bool { return u.Active && u.Age >= 18 }).
-			Sorted(func(a, b user) int { return a.Age - b.Age }),
-		func(u user) string { return u.Name },
-	).ToSlice()
+	names := stream.FromSlice(users).
+		Filter(func(u user) bool { return u.Active && u.Age >= 18 }).
+		Sorted(func(a, b user) int { return a.Age - b.Age }).
+		Map(func(u user) string { return u.Name }).
+		ToSlice()
 
 	fmt.Println(names)
 	// Output: [dave alice]
@@ -166,4 +165,26 @@ func ExampleIdentity() {
 	lengths := stream.ToMap(stream.Of("go", "java"), stream.Identity, func(w string) int { return len(w) })
 	fmt.Println(lengths)
 	// Output: map[go:2 java:4]
+}
+
+func ExampleStream_Map() {
+	// Map can change the element type, so the pipeline keeps chaining.
+	labels := stream.Range(1, 4).
+		Map(func(i int) string { return strings.Repeat("*", i) }).
+		Map(func(s string) string { return "[" + s + "]" }).
+		ToSlice()
+	fmt.Println(labels)
+	// Output: [[*] [**] [***]]
+}
+
+func ExampleStream_Fold() {
+	words := stream.Of("go", "rust", "zig")
+	fmt.Println(words.Fold(0, func(n int, w string) int { return n + len(w) }))
+	// Output: 9
+}
+
+func ExampleStream_GroupBy() {
+	byLength := stream.Of("go", "rust", "zig", "c", "java").GroupBy(func(w string) int { return len(w) })
+	fmt.Println(byLength[1], byLength[2], byLength[3], byLength[4])
+	// Output: [c] [go] [zig] [rust java]
 }

@@ -6,10 +6,11 @@ import (
 )
 
 // ParallelStream is a Stream whose stages run on several goroutines. Create one with
-// Stream.Parallel, add stages with Filter, Map, Peek or ParallelMap, and return to
-// ordinary one-at-a-time processing with Sequential:
+// Stream.Parallel, add stages with Filter, Map or Peek, and return to ordinary
+// one-at-a-time processing with Sequential:
 //
-//	thumbs := stream.ParallelMap(stream.FromSlice(images).Parallel(8), resize).
+//	thumbs := stream.FromSlice(images).Parallel(8).
+//		Map(resize).
 //		Filter(isValid).
 //		Sequential().
 //		ToSlice()
@@ -63,7 +64,7 @@ func (s Stream[T]) Parallel(n int) ParallelStream[T] {
 }
 
 // ParallelMap returns a ParallelStream of the results of applying mapper to each
-// element of p. It is the form of ParallelStream.Map that changes the element type.
+// element of p. It is the function form of ParallelStream.Map.
 func ParallelMap[T, R any](p ParallelStream[T], mapper func(T) R) ParallelStream[R] {
 	checkFunc(mapper == nil, "ParallelMap")
 	return parallelStage(p, p.size, func(v T) (R, bool) { return mapper(v), true })
@@ -73,7 +74,7 @@ func ParallelMap[T, R any](p ParallelStream[T], mapper func(T) R) ParallelStream
 // returns the results in order. It is shorthand for one parallel stage, the counterpart
 // of Java's Gatherers.mapConcurrent:
 //
-//	pages := stream.MapConcurrent(urls, 8, fetch)
+//	pages := urls.MapConcurrent(8, fetch)
 //
 // See ParallelStream for what this guarantees. MapConcurrent panics if n is not positive.
 func MapConcurrent[T, R any](s Stream[T], n int, mapper func(T) R) Stream[R] {
@@ -87,9 +88,9 @@ func (p ParallelStream[T]) Filter(predicate func(T) bool) ParallelStream[T] {
 	return parallelStage(p, -1, func(v T) (T, bool) { return v, predicate(v) })
 }
 
-// Map returns a ParallelStream of the results of applying mapper to each element. To
-// map to a different element type, use ParallelMap.
-func (p ParallelStream[T]) Map(mapper func(T) T) ParallelStream[T] {
+// Map returns a ParallelStream of the results of applying mapper to each element. The
+// result may have a different element type. It is the method form of ParallelMap.
+func (p ParallelStream[T]) Map[R any](mapper func(T) R) ParallelStream[R] {
 	return ParallelMap(p, mapper)
 }
 

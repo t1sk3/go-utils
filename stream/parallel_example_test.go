@@ -33,3 +33,12 @@ func ExampleParallelMap() {
 	fmt.Println(labels.ToSlice())
 	// Output: [#1 #2]
 }
+
+func ExampleParallelStream_Map() {
+	labels := stream.Of(1, 2, 3).
+		Parallel(2).
+		Map(func(i int) string { return fmt.Sprintf("#%d", i) }).
+		ToSlice()
+	fmt.Println(labels)
+	// Output: [#1 #2 #3]
+}
