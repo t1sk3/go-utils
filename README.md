@@ -22,18 +22,23 @@ The repository holds two modules:
 | | [`vector`](types/vector) | `VecN[T]` of any dimension, plus `Vec2[T]` and `Vec3[T]` with `X`, `Y`, `Z` fields |
 | | [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
 
-`types` holds the shared vocabulary and has no dependencies, so your own libraries
-can accept or return an `optional.Optional` without pulling in `stream` or anything
-else built on top of it:
+Everything is one module, so a single `go get` gives you all packages:
 
 ```bash
-go get github.com/t1sk3/go-utils/types   # just the types
-go get github.com/t1sk3/go-utils         # the utilities (brings in types)
+go get github.com/t1sk3/go-utils
 ```
 
-The two modules are versioned separately: tags `vX.Y.Z` release the root module and
-`types/vX.Y.Z` release `types`. Both are still at v0, so minor releases may contain
+Only the packages you import are compiled into your program. `types` and its
+subpackages have no dependencies on the rest of the repo, so your own libraries can
+accept or return an `optional.Optional` without depending on `stream`.
+
+Releases are tagged `vX.Y.Z`. The module is still at v0, so minor releases may contain
 breaking changes until v1.0.0. See [RELEASING.md](RELEASING.md) for how releases are cut.
+
+Versions up to v0.5.0 shipped `types` as a separate module
+(`github.com/t1sk3/go-utils/types`). If your `go.mod` still requires it, remove it with
+`go get github.com/t1sk3/go-utils/types@none` to avoid “ambiguous import” errors.
+
 
 ## stream
 

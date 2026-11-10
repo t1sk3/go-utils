@@ -1,64 +1,54 @@
 # Releasing
 
-This repository holds two Go modules, and each is released by its own tag:
+This repository is a single Go module, `github.com/t1sk3/go-utils`, released by
+`vX.Y.Z` tags. All packages, including `types` and its subpackages, ship together in
+each release.
 
-| Module | Directory | Tag |
-|---|---|---|
-| `github.com/t1sk3/go-utils` | `.` | `vX.Y.Z` |
-| `github.com/t1sk3/go-utils/types` | `types/` | `types/vX.Y.Z` |
+Never add a `replace` directive to `go.mod`: modules that depend on this one ignore
+it, so the published module would fail to build. CI rejects them.
 
-## Local development
-
-`go.work` puts both modules in one workspace, so a change to `types` is picked up
-by `stream` straight away and both can change in one commit. `go build`, `go test`
-and `go vet` use the workspace; `go mod tidy` and anyone installing the module do
-not, so the root `go.mod` must always require a *published* `types` version.
-
-Never add a `replace` directive to a `go.mod`: modules that depend on this one
-ignore it, so the published module would fail to build. CI rejects them.
+Do not add a `go.mod` to a subdirectory. That turns it into a separate module with
+its own `dir/vX.Y.Z` tags, which this repository moved away from in v0.5.1.
 
 ## Cutting a release
 
-Release `types` first whenever it changed, because the root module depends on it.
-
-1. Merge everything into `main` and make sure CI is green.
-2. If `types/` changed since its last tag, tag and push it:
+1. Merge everything into `main` and make sure CI is green. Locally:
 
    ```bash
-   git tag types/v0.2.0
-   git push origin types/v0.2.0
+   go mod tidy
+   go build ./...
+   go test ./...
    ```
 
-3. If the root module uses anything new from `types`, point it at that release and
-   commit the change to `main`:
+   `go mod tidy` must leave `go.mod` and `go.sum` unchanged.
+
+2. Tag and push:
 
    ```bash
-   GOWORK=off GOPROXY=direct go get github.com/t1sk3/go-utils/types@v0.2.0
-   GOWORK=off go mod tidy
+   git tag v0.6.0
+   git push origin v0.6.0
    ```
 
-   (`GOPROXY=direct` skips the module proxy, which can take a few minutes to see a
-   brand-new tag.)
-
-4. Tag and push the root module:
+3. Ask the proxy for the new version so it shows up on pkg.go.dev straight away:
 
    ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
+   GOPROXY=https://proxy.golang.org GO111MODULE=on go list -m github.com/t1sk3/go-utils@v0.6.0
    ```
 
-5. Ask the proxy for the new versions so they show up on pkg.go.dev straight away:
-
-   ```bash
-   GOPROXY=https://proxy.golang.org GO111MODULE=on go list -m github.com/t1sk3/go-utils/types@v0.2.0
-   GOPROXY=https://proxy.golang.org GO111MODULE=on go list -m github.com/t1sk3/go-utils@v0.2.0
-   ```
+   Or open `https://pkg.go.dev/github.com/t1sk3/go-utils@v0.6.0` and press **Request**.
 
 A pushed tag is permanent: the module proxy and checksum database keep that version
-forever, even if the tag is deleted. If a release is broken, publish a new patch
-version, and add a `retract` directive to `go.mod` for the bad one.
+forever, even if the tag is deleted or moved. Never move a tag. If a release is broken,
+publish a new patch version, and add a `retract` directive to `go.mod` for the bad one.
 
 ## Versioning
 
-Both modules are at v0, so minor versions may break the API. Releasing v2 or later
-of a module requires changing its module path to end in `/v2`.
+The module is at v0, so minor versions may break the API. Releasing v2 or later
+requires changing the module path to end in `/v2`.
+
+## History
+
+Up to v0.5.0, `types` was a separate module, `github.com/t1sk3/go-utils/types`,
+released with `types/vX.Y.Z` tags. Those versions stay on the proxy. Users who still
+require that module should remove it with `go get github.com/t1sk3/go-utils/types@none`
+to avoid “ambiguous import” errors.
