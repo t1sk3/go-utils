@@ -3,6 +3,7 @@ package future
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"slices"
 	"strings"
@@ -155,6 +156,29 @@ func TestThen(t *testing.T) {
 	}
 }
 
+func TestThenMethod(t *testing.T) {
+	ctx := context.Background()
+	// The method can change the type at each step, so calls chain.
+	label, err := Completed("abc").
+		Then(func(s string) (int, error) { return len(s), nil }).
+		Then(func(n int) (string, error) { return fmt.Sprintf("len=%d", n), nil }).
+		Get(ctx)
+	if label != "len=3" || err != nil {
+		t.Errorf("Then chain = %q, %v", label, err)
+	}
+	var calls atomic.Int64
+	_, err = Failed[string](errBoom).
+		Then(func(s string) (int, error) { calls.Add(1); return 0, nil }).
+		Then(func(n int) (int, error) { calls.Add(1); return n, nil }).
+		Get(ctx)
+	if !errors.Is(err, errBoom) || calls.Load() != 0 {
+		t.Errorf("error = %v after %d calls", err, calls.Load())
+	}
+	if _, err := Completed(1).Then(func(int) (int, error) { panic(errBoom) }).Get(ctx); !errors.Is(err, errBoom) {
+		t.Errorf("panic in Then = %v", err)
+	}
+}
+
 func TestAll(t *testing.T) {
 	ctx := context.Background()
 	slow, release := blocked(1, nil)
@@ -237,8 +261,9 @@ func TestAnyNoFuturesAndContext(t *testing.T) {
 
 func TestNilFunctions(t *testing.T) {
 	for name, f := range map[string]func(){
-		"Go":   func() { Go[int](nil) },
-		"Then": func() { Then[int, int](Completed(1), nil) },
+		"Go":          func() { Go[int](nil) },
+		"Then":        func() { Then[int, int](Completed(1), nil) },
+		"Then method": func() { Completed(1).Then[int](nil) },
 	} {
 		func() {
 			defer func() {
