@@ -11,7 +11,7 @@ import (
 func Example() {
 	ctx := context.Background()
 	name := future.Go(func() (string, error) { return "alice", nil })
-	shout := future.Then(name, func(s string) (string, error) { return strings.ToUpper(s), nil })
+	shout := name.Then(func(s string) (string, error) { return strings.ToUpper(s), nil })
 
 	got, err := shout.Get(ctx)
 	fmt.Println(got, err)

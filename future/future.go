@@ -86,8 +86,18 @@ func Failed[T any](err error) *Future[T] {
 	return fut
 }
 
-// Then returns a Future of f applied to the result of fut. If fut fails, f does not run
-// and the returned Future holds the same error.
+// Then returns a Future of fn applied to the result of f, run on a new goroutine once f
+// completes. If f fails, fn does not run and the returned Future holds the same error.
+// The result may have a different type:
+//
+//	orders := future.Go(fetchUser).Then(fetchOrders)
+//
+// Then panics if fn is nil.
+func (f *Future[T]) Then[R any](fn func(T) (R, error)) *Future[R] {
+	return Then(f, fn)
+}
+
+// Then is the function form of Future.Then.
 func Then[T, R any](fut *Future[T], f func(T) (R, error)) *Future[R] {
 	if f == nil {
 		panic("future: Then requires a non-nil function")

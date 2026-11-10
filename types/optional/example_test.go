@@ -63,3 +63,10 @@ func ExampleFromMap() {
 	fmt.Println(optional.FromMap(ports, "http").OrElse(-1), optional.FromMap(ports, "gopher").OrElse(-1))
 	// Output: 80 -1
 }
+
+func ExampleOptional_Map() {
+	nickname := findUser("alice").FlatMap(func(u user) optional.Optional[string] { return u.Nickname })
+	initial := findUser("bob").Map(func(u user) byte { return u.Name[0] })
+	fmt.Println(nickname.OrElse("none"), initial.IsPresent())
+	// Output: al false
+}

@@ -151,11 +151,15 @@ port := optional.OfOk(os.LookupEnv("PORT")).OrElse("8080")
 
 if u, ok := findUser(id).Value(); ok { ... }
 
-name := optional.Map(findUser(id), func(u User) string { return u.Name }).OrElse("anonymous")
+name := findUser(id).Map(User.Name).OrElse("anonymous")
+email := findUser(id).FlatMap(User.Email) // when User.Email returns an Optional
 
 u, err := findUser(id).OrElseErr(ErrNotFound)
 timeout := optional.FromMap(settings, "timeout").OrElse(30)
 ```
+
+`Map` and `FlatMap` are methods and can change the type, so calls chain; the functions
+`optional.Map` and `optional.FlatMap` still exist.
 
 `Optional[T]` is a plain value type. The zero value is empty, it never allocates,
 and it marshals to/from JSON as the value or `null` (use `json:",omitzero"` to drop
