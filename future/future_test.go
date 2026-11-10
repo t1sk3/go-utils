@@ -3,6 +3,7 @@ package future
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"slices"
 	"strings"
@@ -59,8 +60,8 @@ func TestGoKeepsValueAlongsideError(t *testing.T) {
 func TestGoRecoversPanic(t *testing.T) {
 	fut := Go(func() (int, error) { panic(errBoom) })
 	_, err := fut.Get(context.Background())
-	var pe *PanicError
-	if !errors.As(err, &pe) {
+	pe, ok := errors.AsType[*PanicError](err)
+	if !ok {
 		t.Fatalf("error = %v, want a *PanicError", err)
 	}
 	if pe.Value != errBoom || !errors.Is(err, errBoom) {
@@ -71,7 +72,7 @@ func TestGoRecoversPanic(t *testing.T) {
 	}
 	plain := Go(func() (int, error) { panic("text") })
 	_, err = plain.Get(context.Background())
-	if !errors.As(err, &pe) || pe.Value != "text" || pe.Unwrap() != nil {
+	if pe, ok := errors.AsType[*PanicError](err); !ok || pe.Value != "text" || pe.Unwrap() != nil {
 		t.Errorf("non-error panic: %#v", err)
 	}
 }
@@ -81,8 +82,8 @@ func TestGoReportsGoexit(t *testing.T) {
 		runtime.Goexit()
 		return 1, nil
 	})
-	var pe *PanicError
-	if _, err := fut.Get(context.Background()); !errors.As(err, &pe) {
+	_, err := fut.Get(context.Background())
+	if _, ok := errors.AsType[*PanicError](err); !ok {
 		t.Errorf("error = %v, want a *PanicError", err)
 	}
 }
@@ -151,6 +152,29 @@ func TestThen(t *testing.T) {
 		t.Errorf("error = %v after %d calls", err, calls.Load())
 	}
 	if _, err := Then(Completed(1), func(int) (int, error) { panic(errBoom) }).Get(ctx); !errors.Is(err, errBoom) {
+		t.Errorf("panic in Then = %v", err)
+	}
+}
+
+func TestThenMethod(t *testing.T) {
+	ctx := context.Background()
+	// The method can change the type at each step, so calls chain.
+	label, err := Completed("abc").
+		Then(func(s string) (int, error) { return len(s), nil }).
+		Then(func(n int) (string, error) { return fmt.Sprintf("len=%d", n), nil }).
+		Get(ctx)
+	if label != "len=3" || err != nil {
+		t.Errorf("Then chain = %q, %v", label, err)
+	}
+	var calls atomic.Int64
+	_, err = Failed[string](errBoom).
+		Then(func(s string) (int, error) { calls.Add(1); return 0, nil }).
+		Then(func(n int) (int, error) { calls.Add(1); return n, nil }).
+		Get(ctx)
+	if !errors.Is(err, errBoom) || calls.Load() != 0 {
+		t.Errorf("error = %v after %d calls", err, calls.Load())
+	}
+	if _, err := Completed(1).Then(func(int) (int, error) { panic(errBoom) }).Get(ctx); !errors.Is(err, errBoom) {
 		t.Errorf("panic in Then = %v", err)
 	}
 }
@@ -237,8 +261,9 @@ func TestAnyNoFuturesAndContext(t *testing.T) {
 
 func TestNilFunctions(t *testing.T) {
 	for name, f := range map[string]func(){
-		"Go":   func() { Go[int](nil) },
-		"Then": func() { Then[int, int](Completed(1), nil) },
+		"Go":          func() { Go[int](nil) },
+		"Then":        func() { Then[int, int](Completed(1), nil) },
+		"Then method": func() { Completed(1).Then[int](nil) },
 	} {
 		func() {
 			defer func() {

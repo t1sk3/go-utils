@@ -3,24 +3,22 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/t1sk3/go-utils.svg)](https://pkg.go.dev/github.com/t1sk3/go-utils)
 [![CI](https://github.com/t1sk3/go-utils/actions/workflows/ci.yml/badge.svg)](https://github.com/t1sk3/go-utils/actions/workflows/ci.yml)
 
-Small, dependency-free generic utilities for Go 1.24+.
+Small, dependency-free generic utilities. Requires Go 1.27 or later.
 
-The repository holds two modules:
-
-| Module | Package | What it gives you |
-|---|---|---|
-| `github.com/t1sk3/go-utils` | [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
-| | [`future`](future) | `Future[T]`, the typed result of work running on another goroutine, with `All`, `Any` and `Then` |
-| | [`concurrent`](concurrent) | `Map[K, V]`, a typed map with atomic `ComputeIfAbsent`, `Compute` and `Merge` |
-| `github.com/t1sk3/go-utils/types` | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
-| | [`deque`](types/deque) | `Deque[T]`, a double-ended queue that also works as a FIFO queue or a stack |
-| | [`pq`](types/pq) | `Queue[T]`, a priority queue ordered by a comparator |
-| | [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
-| | [`sorted`](types/sorted) | `Map[K, V]` and `Set[T]`, kept in comparator order with floor, ceiling and range lookups |
-| | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
-| | [`linked`](types/linked) | `Map[K, V]` and `Set[T]` that remember insertion order, which also makes an LRU cache simple |
-| | [`vector`](types/vector) | `VecN[T]` of any dimension, plus `Vec2[T]` and `Vec3[T]` with `X`, `Y`, `Z` fields |
-| | [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
+| Package | What it gives you |
+|---|---|
+| [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
+| [`future`](future) | `Future[T]`, the typed result of work running on another goroutine, with `All`, `Any` and `Then` |
+| [`concurrent`](concurrent) | `Map[K, V]`, a typed map with atomic `ComputeIfAbsent`, `Compute` and `Merge` |
+| [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
+| [`deque`](types/deque) | `Deque[T]`, a double-ended queue that also works as a FIFO queue or a stack |
+| [`pq`](types/pq) | `Queue[T]`, a priority queue ordered by a comparator |
+| [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
+| [`sorted`](types/sorted) | `Map[K, V]` and `Set[T]`, kept in comparator order with floor, ceiling and range lookups |
+| [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
+| [`linked`](types/linked) | `Map[K, V]` and `Set[T]` that remember insertion order, which also makes an LRU cache simple |
+| [`vector`](types/vector) | `VecN[T]` of any dimension, plus `Vec2[T]` and `Vec3[T]` with `X`, `Y`, `Z` fields |
+| [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
 
 Everything is one module, so a single `go get` gives you all packages:
 
@@ -61,15 +59,28 @@ source as soon as they have their answer, so infinite streams work too:
 stream.Iterate(1, func(i int) int { return i * 2 }).Limit(10).ToSlice() // [1 2 4 ... 512]
 ```
 
-Go methods can't add type parameters, so operations that change the element type
-or need `comparable` / `cmp.Ordered` are package functions:
+Operations that change the element type are methods too (Go 1.27 generic methods), so
+pipelines read left to right:
 
 ```go
-names := stream.Map(stream.FromSlice(users), func(u User) string { return u.Name })
-total := stream.Sum(stream.Map(stream.FromSlice(orders), Order.Total))
-byTeam := stream.GroupBy(stream.FromSlice(users), func(u User) string { return u.Team })
+names := stream.FromSlice(users).Filter(User.IsActive).Map(User.Name).ToSlice()
+byTeam := stream.FromSlice(users).GroupBy(func(u User) string { return u.Team })
+lengths := stream.Of("go", "rust").Fold(0, func(n int, w string) int { return n + len(w) })
+```
+
+Every such method also exists as a package function (`stream.Map(s, f)` and so on), so
+code written for v0.5 keeps compiling. Operations that need `comparable`, `cmp.Ordered`
+or a number type are functions only, because a method can't add a constraint to the
+stream's own element type. `Enumerate`, `Chunk`, `Window` and `Zip` are functions only
+too: the compiler rejects their method forms as an instantiation cycle.
+
+```go
+total := stream.Sum(stream.FromSlice(orders).Map(Order.Total))
 csv := stream.Join(stream.Distinct(stream.Of("a", "b", "a")), ",") // "a,b"
 ```
+
+When a method's type argument can't be inferred, as with a bare `nil`, give it
+explicitly: `s.Map[string](nil)`.
 
 Streams interoperate with `iter.Seq`, so they work with `range` and the standard library:
 
@@ -88,16 +99,16 @@ Batching, sliding windows and running totals work on infinite streams too:
 
 ```go
 for batch := range stream.Chunk(rows, 500).All() { db.InsertMany(batch) }
-avg := stream.Map(stream.Window(prices, 7), mean)                // 7-day moving average
-balance := stream.Scan(changes, 0, func(t, c int) int { return t + c })
+avg := stream.Window(prices, 7).Map(mean)                        // 7-day moving average
+balance := changes.Scan(0, func(t, c int) int { return t + c })
 ```
 
 Collectors reduce a stream and nest, so a grouping can reduce each group instead of
 keeping its elements. They are the counterparts of Java's `Collectors`:
 
 ```go
-averageAge := stream.Collect(users, stream.GroupingBy(User.Team, stream.Averaging(User.Age)))
-activeByTeam := stream.Collect(users, stream.GroupingBy(User.Team,
+averageAge := users.Collect(stream.GroupingBy(User.Team, stream.Averaging(User.Age)))
+activeByTeam := users.Collect(stream.GroupingBy(User.Team,
 	stream.Filtering(User.IsActive, stream.Counting[User]())))
 ```
 
@@ -116,8 +127,9 @@ panic in a stage comes back on the consuming goroutine. `MapConcurrent` is the s
 for a single stage:
 
 ```go
-pages := stream.MapConcurrent(urls, 8, fetch).ToSlice()
-ok := stream.ParallelMap(stream.FromSlice(images).Parallel(runtime.GOMAXPROCS(0)), resize).
+pages := urls.MapConcurrent(8, fetch).ToSlice()
+ok := stream.FromSlice(images).Parallel(runtime.GOMAXPROCS(0)).
+	Map(resize).
 	Filter(isValid).
 	Sequential().
 	Count()
@@ -137,9 +149,10 @@ stream.FromSlice(users).Sorted(stream.ThenComparing(stream.Reversed(byAge), byNa
 | | |
 |---|---|
 | **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `FromOptional`, `OfNullable`, `Range`, `RangeClosed`, `Iterate`, `IterateWhile`, `Generate`, `Concat`, `Empty` |
-| **Intermediate methods** | `Filter`, `Map` (same type), `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted` |
-| **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Min`, `Max`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `All` |
-| **Generic functions** | `Map`, `FlatMap`, `Zip`, `Enumerate`, `Chunk`, `Window`, `Scan`, `Distinct`, `DistinctBy`, `Sort`, `Fold`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `ToSet`, `ToSeq2`, `Join`, `Identity` |
+| **Intermediate methods** | `Filter`, `Map`, `FlatMap`, `DistinctBy`, `Scan`, `MapConcurrent`, `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted`, `Parallel` |
+| **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Fold`, `Collect`, `Min`, `Max`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `All` |
+| **Functions with a method form** | `Map`, `FlatMap`, `DistinctBy`, `Scan`, `Fold`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `Collect`, `MapConcurrent`, `ParallelMap` |
+| **Functions only** | `Zip`, `Enumerate`, `Chunk`, `Window`, `Distinct`, `Sort`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `ToSet`, `ToSeq2`, `Join`, `Identity` |
 | **Comparators** | `Comparing`, `Reversed`, `ThenComparing`, `NilsFirst`, `NilsLast` |
 | **Predicates** | `IsEven`, `IsOdd`, `IsPositive`, `IsNegative`, `IsZero`, `Equal`, `GreaterThan`, `LessThan`, `AtLeast`, `AtMost`, `Between`, `In`, `Not`, `And`, `Or` |
 | **Collectors** | `Collect`, `NewCollector`, `IntoSlice`, `IntoSet`, `Joining`, `Counting`, `Summing`, `Averaging`, `MinBy`, `MaxBy`, `Folding`, `GroupingBy`, `PartitioningBy`, `Mapping`, `FlatMapping`, `Filtering`, `CollectingAndThen`, `Teeing` |
@@ -153,11 +166,15 @@ port := optional.OfOk(os.LookupEnv("PORT")).OrElse("8080")
 
 if u, ok := findUser(id).Value(); ok { ... }
 
-name := optional.Map(findUser(id), func(u User) string { return u.Name }).OrElse("anonymous")
+name := findUser(id).Map(User.Name).OrElse("anonymous")
+email := findUser(id).FlatMap(User.Email) // when User.Email returns an Optional
 
 u, err := findUser(id).OrElseErr(ErrNotFound)
 timeout := optional.FromMap(settings, "timeout").OrElse(30)
 ```
+
+`Map` and `FlatMap` are methods and can change the type, so calls chain; the functions
+`optional.Map` and `optional.FlatMap` still exist.
 
 `Optional[T]` is a plain value type. The zero value is empty, it never allocates,
 and it marshals to/from JSON as the value or `null` (use `json:",omitzero"` to drop
@@ -182,7 +199,7 @@ import "github.com/t1sk3/go-utils/types/set"
 var seen set.Set[string] // the zero value is ready to use
 seen.Add("a", "b")
 
-admins := stream.ToSet(stream.Map(stream.FromSlice(users).Filter(User.IsAdmin), User.ID))
+admins := stream.ToSet(stream.FromSlice(users).Filter(User.IsAdmin).Map(User.ID))
 missing := required.Difference(granted)
 ```
 

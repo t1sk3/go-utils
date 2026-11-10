@@ -13,11 +13,9 @@ func ExampleMap_Merge() {
 
 	var wg sync.WaitGroup
 	for range 100 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			counts.Merge("hits", 1, add)
-		}()
+		})
 	}
 	wg.Wait()
 

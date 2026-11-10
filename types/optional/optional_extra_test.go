@@ -92,6 +92,48 @@ func TestMapAndFlatMap(t *testing.T) {
 	}
 }
 
+func TestMapAndFlatMapMethods(t *testing.T) {
+	// The methods can change the type at each step, so calls chain.
+	if got := Of(21).Map(func(i int) int { return i * 2 }).Map(strconv.Itoa); got != Of("42") {
+		t.Errorf("Map chain = %v", got)
+	}
+	calls := 0
+	if got := Empty[int]().Map(func(i int) string { calls++; return strconv.Itoa(i) }); got.IsPresent() || calls != 0 {
+		t.Errorf("Map of empty = %v after %d calls", got, calls)
+	}
+	parse := func(s string) Optional[int] {
+		i, err := strconv.Atoi(s)
+		return OfOk(i, err == nil)
+	}
+	if got := Of("12").FlatMap(parse).Map(func(i int) int { return i + 1 }); got != Of(13) {
+		t.Errorf("FlatMap then Map = %v", got)
+	}
+	if got := Of("x").FlatMap(parse); got.IsPresent() {
+		t.Errorf("FlatMap of a failed parse = %v", got)
+	}
+	if got := Empty[string]().FlatMap(parse); got.IsPresent() {
+		t.Errorf("FlatMap of empty = %v", got)
+	}
+	// Like the functions, the methods only call f when a value is present, so a nil f
+	// is fine on an empty Optional and panics on a present one.
+	if Empty[int]().Map[string](nil).IsPresent() || Empty[int]().FlatMap[string](nil).IsPresent() {
+		t.Error("nil f on empty Optional produced a value")
+	}
+	for name, f := range map[string]func(){
+		"Map":     func() { Of(1).Map[string](nil) },
+		"FlatMap": func() { Of(1).FlatMap[string](nil) },
+	} {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("%s with nil f on a present Optional did not panic", name)
+				}
+			}()
+			f()
+		}()
+	}
+}
+
 func TestJSON(t *testing.T) {
 	type doc struct {
 		A Optional[int]    `json:"a"`

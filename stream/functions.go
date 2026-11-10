@@ -12,8 +12,9 @@ import (
 	"github.com/t1sk3/go-utils/types/set"
 )
 
-// This file holds operations that Go cannot express as methods on Stream, because
-// they introduce a new type parameter or constrain T.
+// This file holds the package-level functions. Those that only introduce a new type
+// parameter, such as Map and Fold, also have a method form in methods.go; those that
+// constrain T, and Enumerate, Chunk, Window and Zip, exist only here.
 
 // Map returns a Stream of the results of applying mapper to each element of s.
 func Map[T, R any](s Stream[T], mapper func(T) R) Stream[R] {

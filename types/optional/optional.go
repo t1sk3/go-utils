@@ -149,8 +149,7 @@ func (o Optional[T]) Ptr() *T {
 	if !o.present {
 		return nil
 	}
-	v := o.value
-	return &v
+	return new(o.value)
 }
 
 // IsZero reports whether the Optional is empty. It lets encoding/json drop empty
@@ -189,8 +188,22 @@ func (o *Optional[T]) UnmarshalJSON(data []byte) error {
 }
 
 // Map applies f to the contained value and wraps the result, or returns an empty
-// Optional if o is empty. It is a function rather than a method because Go methods
-// cannot introduce new type parameters.
+// Optional if o is empty. The result may have a different type:
+//
+//	name := findUser(id).Map(User.Name).OrElse("anonymous")
+func (o Optional[T]) Map[R any](f func(T) R) Optional[R] {
+	return Map(o, f)
+}
+
+// FlatMap applies f to the contained value and returns its result, or returns an
+// empty Optional if o is empty. Use it when f itself returns an Optional:
+//
+//	email := findUser(id).FlatMap(User.Email)
+func (o Optional[T]) FlatMap[R any](f func(T) Optional[R]) Optional[R] {
+	return FlatMap(o, f)
+}
+
+// Map is the function form of Optional.Map.
 func Map[T, R any](o Optional[T], f func(T) R) Optional[R] {
 	if !o.present {
 		return Optional[R]{}
@@ -198,8 +211,7 @@ func Map[T, R any](o Optional[T], f func(T) R) Optional[R] {
 	return Of(f(o.value))
 }
 
-// FlatMap applies f to the contained value and returns its result, or returns an
-// empty Optional if o is empty.
+// FlatMap is the function form of Optional.FlatMap.
 func FlatMap[T, R any](o Optional[T], f func(T) Optional[R]) Optional[R] {
 	if !o.present {
 		return Optional[R]{}

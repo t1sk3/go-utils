@@ -7,11 +7,21 @@
 // pulling from the source as soon as they have their answer. This also makes
 // infinite streams (Iterate, Generate) safe to use with Limit or TakeWhile.
 //
-// Go methods cannot introduce new type parameters, so operations that change the
-// element type or need a constraint on it are package-level functions:
+// Operations that change the element type, such as Map, FlatMap, Scan and Fold, are
+// methods, so pipelines chain from left to right:
 //
-//	names := stream.Map(stream.FromSlice(users).Filter(User.IsActive), User.Name).ToSlice()
-//	total := stream.Sum(stream.Map(stream.FromSlice(orders), Order.Amount))
+//	names := stream.FromSlice(users).Filter(User.IsActive).Map(User.Name).ToSlice()
+//
+// Each of these methods also exists as a package-level function. Operations that need
+// a constraint on the element type, such as Sum, Sort and Distinct, are functions only,
+// because a method cannot add a constraint to its receiver's type parameter. So are
+// Enumerate, Chunk, Window and Zip, whose method forms the compiler rejects as an
+// instantiation cycle:
+//
+//	total := stream.Sum(stream.FromSlice(orders).Map(Order.Amount))
+//
+// When a method's type argument cannot be inferred, as with a bare nil, give it
+// explicitly: s.Map[string](nil).
 //
 // Streams are values and every operation returns a new Stream, so a Stream can be
 // shared and extended freely. A Stream built from a slice, range or generator can be
@@ -228,9 +238,9 @@ func (s Stream[T]) Filter(predicate func(T) bool) Stream[T] {
 	}}
 }
 
-// Map returns a Stream of the results of applying mapper to each element. To map to
-// a different element type, use the package-level Map function.
-func (s Stream[T]) Map(mapper func(T) T) Stream[T] {
+// Map returns a Stream of the results of applying mapper to each element. The result
+// may have a different element type. It is the method form of the Map function.
+func (s Stream[T]) Map[R any](mapper func(T) R) Stream[R] {
 	return Map(s, mapper)
 }
 
@@ -479,7 +489,7 @@ func (s Stream[T]) Max(comparator func(a, b T) int) optional.Optional[T] {
 
 // Reduce combines the elements from left to right with accumulator, or returns an
 // empty Optional if the stream is empty. To reduce into a different type or start
-// from an initial value, use the package-level Fold function.
+// from an initial value, use Fold.
 func (s Stream[T]) Reduce(accumulator func(acc, v T) T) optional.Optional[T] {
 	checkFunc(accumulator == nil, "Reduce")
 	var result T

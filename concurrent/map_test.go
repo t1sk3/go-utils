@@ -95,9 +95,7 @@ func TestComputeIfAbsentRunsOncePerKey(t *testing.T) {
 	var wg sync.WaitGroup
 	const goroutines, keys = 32, 10
 	for range goroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for k := range keys {
 				got := m.ComputeIfAbsent(k, func(k int) int {
 					calls.Add(1)
@@ -107,7 +105,7 @@ func TestComputeIfAbsentRunsOncePerKey(t *testing.T) {
 					t.Errorf("ComputeIfAbsent(%d) = %d", k, got)
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	if got := calls.Load(); got != keys {
@@ -123,9 +121,7 @@ func TestConcurrentUpdates(t *testing.T) {
 	const goroutines, rounds = 16, 500
 	add := func(a, b int) int { return a + b }
 	for range goroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range rounds {
 				m.Merge("merge", 1, add)
 				m.Compute("compute", func(v int, _ bool) (int, bool) { return v + 1, true })
@@ -136,7 +132,7 @@ func TestConcurrentUpdates(t *testing.T) {
 					break
 				}
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	want := map[string]int{"merge": goroutines * rounds, "compute": goroutines * rounds}
