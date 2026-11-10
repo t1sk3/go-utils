@@ -59,8 +59,8 @@ func TestGoKeepsValueAlongsideError(t *testing.T) {
 func TestGoRecoversPanic(t *testing.T) {
 	fut := Go(func() (int, error) { panic(errBoom) })
 	_, err := fut.Get(context.Background())
-	var pe *PanicError
-	if !errors.As(err, &pe) {
+	pe, ok := errors.AsType[*PanicError](err)
+	if !ok {
 		t.Fatalf("error = %v, want a *PanicError", err)
 	}
 	if pe.Value != errBoom || !errors.Is(err, errBoom) {
@@ -71,7 +71,7 @@ func TestGoRecoversPanic(t *testing.T) {
 	}
 	plain := Go(func() (int, error) { panic("text") })
 	_, err = plain.Get(context.Background())
-	if !errors.As(err, &pe) || pe.Value != "text" || pe.Unwrap() != nil {
+	if pe, ok := errors.AsType[*PanicError](err); !ok || pe.Value != "text" || pe.Unwrap() != nil {
 		t.Errorf("non-error panic: %#v", err)
 	}
 }
@@ -81,8 +81,8 @@ func TestGoReportsGoexit(t *testing.T) {
 		runtime.Goexit()
 		return 1, nil
 	})
-	var pe *PanicError
-	if _, err := fut.Get(context.Background()); !errors.As(err, &pe) {
+	_, err := fut.Get(context.Background())
+	if _, ok := errors.AsType[*PanicError](err); !ok {
 		t.Errorf("error = %v, want a *PanicError", err)
 	}
 }

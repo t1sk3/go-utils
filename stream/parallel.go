@@ -170,9 +170,7 @@ func runParallel[T any](tasks iter.Seq[func() (T, bool)], n int, yield func(T) b
 	running := make(chan struct{}, n)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer close(pending)
 		finished := false
 		defer func() {
@@ -201,9 +199,7 @@ func runParallel[T any](tasks iter.Seq[func() (T, bool)], n int, yield func(T) b
 				finished = true
 				return
 			}
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				defer func() { <-running }()
 				var r parallelResult[T]
 				completed := false
@@ -215,10 +211,10 @@ func runParallel[T any](tasks iter.Seq[func() (T, bool)], n int, yield func(T) b
 				}()
 				r.value, r.ok = task()
 				completed = true
-			}()
+			})
 		}
 		finished = true
-	}()
+	})
 
 	defer func() {
 		close(done)

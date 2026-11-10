@@ -149,8 +149,7 @@ func (o Optional[T]) Ptr() *T {
 	if !o.present {
 		return nil
 	}
-	v := o.value
-	return &v
+	return new(o.value)
 }
 
 // IsZero reports whether the Optional is empty. It lets encoding/json drop empty
