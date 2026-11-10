@@ -312,7 +312,7 @@ func TestParallelRejectsBadArguments(t *testing.T) {
 		"MapConcurrent func": func() { MapConcurrent[int, int](Of(1), 1, nil) },
 		"ParallelMap":        func() { ParallelMap[int, int](p, nil) },
 		"Filter":             func() { p.Filter(nil) },
-		"Map":                func() { p.Map(nil) },
+		"Map":                func() { p.Map[int](nil) },
 		"Peek":               func() { p.Peek(nil) },
 		"ForEach":            func() { p.ForEach(nil) },
 	} {
