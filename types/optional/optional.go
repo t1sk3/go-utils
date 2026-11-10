@@ -192,7 +192,10 @@ func (o *Optional[T]) UnmarshalJSON(data []byte) error {
 //
 //	name := findUser(id).Map(User.Name).OrElse("anonymous")
 func (o Optional[T]) Map[R any](f func(T) R) Optional[R] {
-	return Map(o, f)
+	if !o.present {
+		return Optional[R]{}
+	}
+	return Of(f(o.value))
 }
 
 // FlatMap applies f to the contained value and returns its result, or returns an
@@ -200,19 +203,6 @@ func (o Optional[T]) Map[R any](f func(T) R) Optional[R] {
 //
 //	email := findUser(id).FlatMap(User.Email)
 func (o Optional[T]) FlatMap[R any](f func(T) Optional[R]) Optional[R] {
-	return FlatMap(o, f)
-}
-
-// Map is the function form of Optional.Map.
-func Map[T, R any](o Optional[T], f func(T) R) Optional[R] {
-	if !o.present {
-		return Optional[R]{}
-	}
-	return Of(f(o.value))
-}
-
-// FlatMap is the function form of Optional.FlatMap.
-func FlatMap[T, R any](o Optional[T], f func(T) Optional[R]) Optional[R] {
 	if !o.present {
 		return Optional[R]{}
 	}

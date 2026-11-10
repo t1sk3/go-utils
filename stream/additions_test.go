@@ -109,7 +109,7 @@ func TestSummarizeMatchesMinAndMaxWithNaN(t *testing.T) {
 }
 
 func TestIdentity(t *testing.T) {
-	got := ToMap(Of("a", "bb"), Identity, func(s string) int { return len(s) })
+	got := Of("a", "bb").ToMap(Identity, func(s string) int { return len(s) })
 	if want := map[string]int{"a": 1, "bb": 2}; !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}

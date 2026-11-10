@@ -33,6 +33,24 @@ accept or return an `optional.Optional` without depending on `stream`.
 Releases are tagged `vX.Y.Z`. The module is still at v0, so minor releases may contain
 breaking changes until v1.0.0. See [RELEASING.md](RELEASING.md) for how releases are cut.
 
+### Upgrading to v0.6.1
+
+v0.6.1 removes the package functions that v0.6.0 kept next to the new generic methods.
+Rewrite each call with its first argument as the receiver:
+
+| Removed | Use instead |
+|---|---|
+| `stream.Map(s, f)`, `stream.FlatMap`, `stream.DistinctBy`, `stream.Fold`, `stream.Scan`, `stream.GroupBy`, `stream.CountBy`, `stream.ToMap`, `stream.ToMapMerge`, `stream.Collect`, `stream.MapConcurrent` | `s.Map(f)`, `s.FlatMap(…)`, … |
+| `stream.ParallelMap(p, f)` | `p.Map(f)` |
+| `optional.Map(o, f)`, `optional.FlatMap(o, f)` | `o.Map(f)`, `o.FlatMap(f)` |
+| `future.Then(fut, f)` | `fut.Then(f)` |
+| `stream.FromArray(s)` (already deprecated) | `stream.FromSlice(s)` |
+
+With explicit type arguments, drop the first one, which the receiver now supplies:
+`stream.Map[int, string](s, nil)` becomes `s.Map[string](nil)`.
+
+### Older versions
+
 Versions up to v0.5.0 shipped `types` as a separate module
 (`github.com/t1sk3/go-utils/types`). If your `go.mod` still requires it, remove it with
 `go get github.com/t1sk3/go-utils/types@none` to avoid “ambiguous import” errors.
@@ -68,10 +86,8 @@ byTeam := stream.FromSlice(users).GroupBy(func(u User) string { return u.Team })
 lengths := stream.Of("go", "rust").Fold(0, func(n int, w string) int { return n + len(w) })
 ```
 
-Every such method also exists as a package function (`stream.Map(s, f)` and so on), so
-code written for v0.5 keeps compiling. Operations that need `comparable`, `cmp.Ordered`
-or a number type are functions only, because a method can't add a constraint to the
-stream's own element type. `Enumerate`, `Chunk`, `Window` and `Zip` are functions only
+Operations that need `comparable`, `cmp.Ordered` or a number type are package
+functions, because a method can't add a constraint to the stream's own element type. `Enumerate`, `Chunk`, `Window` and `Zip` are functions only
 too: the compiler rejects their method forms as an instantiation cycle.
 
 ```go
@@ -151,8 +167,7 @@ stream.FromSlice(users).Sorted(stream.ThenComparing(stream.Reversed(byAge), byNa
 | **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `FromOptional`, `OfNullable`, `Range`, `RangeClosed`, `Iterate`, `IterateWhile`, `Generate`, `Concat`, `Empty` |
 | **Intermediate methods** | `Filter`, `Map`, `FlatMap`, `DistinctBy`, `Scan`, `MapConcurrent`, `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted`, `Parallel` |
 | **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Fold`, `Collect`, `Min`, `Max`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `All` |
-| **Functions with a method form** | `Map`, `FlatMap`, `DistinctBy`, `Scan`, `Fold`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `Collect`, `MapConcurrent`, `ParallelMap` |
-| **Functions only** | `Zip`, `Enumerate`, `Chunk`, `Window`, `Distinct`, `Sort`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `ToSet`, `ToSeq2`, `Join`, `Identity` |
+| **Functions** | `Zip`, `Enumerate`, `Chunk`, `Window`, `Distinct`, `Sort`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `ToSet`, `ToSeq2`, `Join`, `Identity` |
 | **Comparators** | `Comparing`, `Reversed`, `ThenComparing`, `NilsFirst`, `NilsLast` |
 | **Predicates** | `IsEven`, `IsOdd`, `IsPositive`, `IsNegative`, `IsZero`, `Equal`, `GreaterThan`, `LessThan`, `AtLeast`, `AtMost`, `Between`, `In`, `Not`, `And`, `Or` |
 | **Collectors** | `Collect`, `NewCollector`, `IntoSlice`, `IntoSet`, `Joining`, `Counting`, `Summing`, `Averaging`, `MinBy`, `MaxBy`, `Folding`, `GroupingBy`, `PartitioningBy`, `Mapping`, `FlatMapping`, `Filtering`, `CollectingAndThen`, `Teeing` |
@@ -173,8 +188,7 @@ u, err := findUser(id).OrElseErr(ErrNotFound)
 timeout := optional.FromMap(settings, "timeout").OrElse(30)
 ```
 
-`Map` and `FlatMap` are methods and can change the type, so calls chain; the functions
-`optional.Map` and `optional.FlatMap` still exist.
+`Map` and `FlatMap` are methods and can change the type, so calls chain.
 
 `Optional[T]` is a plain value type. The zero value is empty, it never allocates,
 and it marshals to/from JSON as the value or `null` (use `json:",omitzero"` to drop

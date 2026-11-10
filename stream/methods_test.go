@@ -2,7 +2,6 @@ package stream
 
 import (
 	"maps"
-	"reflect"
 	"slices"
 	"strconv"
 	"testing"
@@ -35,49 +34,7 @@ func TestParallelMapMethodChangesType(t *testing.T) {
 	}
 }
 
-func TestStreamMethodsMatchFunctions(t *testing.T) {
-	words := Of("apple", "avocado", "banana", "blueberry", "cherry", "apple")
-	first := func(w string) byte { return w[0] }
-	length := func(w string) int { return len(w) }
-	add := func(a, b int) int { return a + b }
-	sumLen := func(n int, w string) int { return n + len(w) }
-
-	if got, want := words.FlatMap(func(w string) Stream[byte] { return Of([]byte(w)[:2]...) }).ToSlice(),
-		FlatMap(words, func(w string) Stream[byte] { return Of([]byte(w)[:2]...) }).ToSlice(); !slices.Equal(got, want) {
-		t.Errorf("FlatMap = %q, want %q", got, want)
-	}
-	if got, want := words.DistinctBy(first).ToSlice(), DistinctBy(words, first).ToSlice(); !slices.Equal(got, want) {
-		t.Errorf("DistinctBy = %v, want %v", got, want)
-	}
-	if got, want := words.Fold(0, sumLen), Fold(words, 0, sumLen); got != want {
-		t.Errorf("Fold = %d, want %d", got, want)
-	}
-	if got, want := words.Scan(0, sumLen).ToSlice(), Scan(words, 0, sumLen).ToSlice(); !slices.Equal(got, want) {
-		t.Errorf("Scan = %v, want %v", got, want)
-	}
-	if got, want := words.GroupBy(first), GroupBy(words, first); !reflect.DeepEqual(got, want) {
-		t.Errorf("GroupBy = %v, want %v", got, want)
-	}
-	if got, want := words.CountBy(first), CountBy(words, first); !maps.Equal(got, want) {
-		t.Errorf("CountBy = %v, want %v", got, want)
-	}
-	if got, want := words.ToMap(Identity, length), ToMap(words, Identity, length); !maps.Equal(got, want) {
-		t.Errorf("ToMap = %v, want %v", got, want)
-	}
-	if got, want := words.ToMapMerge(first, length, add), ToMapMerge(words, first, length, add); !maps.Equal(got, want) {
-		t.Errorf("ToMapMerge = %v, want %v", got, want)
-	}
-	if got, want := words.Collect(Joining[string]("+")), Collect(words, Joining[string]("+")); got != want {
-		t.Errorf("Collect = %q, want %q", got, want)
-	}
-	if got, want := words.MapConcurrent(3, length).ToSlice(), MapConcurrent(words, 3, length).ToSlice(); !slices.Equal(got, want) {
-		t.Errorf("MapConcurrent = %v, want %v", got, want)
-	}
-}
-
 func TestStreamMethodResults(t *testing.T) {
-	// Spot-check actual values, so the comparison with the functions above cannot pass
-	// just because both forms are wrong in the same way.
 	s := Of(3, 1, 4, 1, 5, 9, 2, 6)
 	if got := s.DistinctBy(func(i int) int { return i % 3 }).ToSlice(); !slices.Equal(got, []int{3, 1, 5}) {
 		t.Errorf("DistinctBy = %v", got)
@@ -95,7 +52,7 @@ func TestStreamMethodResults(t *testing.T) {
 		t.Errorf("FlatMap = %v", got)
 	}
 	if got := s.Collect(Counting[int]()); got != 8 {
-		t.Errorf("Collect(Counting) = %d", got)
+		t.Errorf("Counting.Collect() = %d", got)
 	}
 }
 

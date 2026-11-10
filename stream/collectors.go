@@ -11,14 +11,14 @@ import (
 // This file holds collectors, the counterparts of Java's Collectors. Their strength is
 // that they nest, so a grouping can reduce each group instead of keeping its elements:
 //
-//	averageAge := stream.Collect(users, stream.GroupingBy(User.Team, stream.Averaging(User.Age)))
+//	averageAge := users.Collect(stream.GroupingBy(User.Team, stream.Averaging(User.Age)))
 //
 // For a single reduction, functions such as GroupBy, CountBy, Sum and Join are shorter
 // and faster. Go cannot infer a collector's element type from where it is used, so the
 // collectors without a function argument need it spelled out: Counting[User]().
 
 // Collector describes how to reduce elements of type T to a result of type R. Build one
-// with the functions in this package or NewCollector, and run it with Collect. A
+// with the functions in this package or NewCollector, and run it with Stream.Collect. A
 // Collector holds no state of its own, so it can be used any number of times.
 type Collector[T, R any] struct {
 	start func() (add func(T), finish func() R)
@@ -33,16 +33,6 @@ func NewCollector[T, A, R any](supplier func() A, accumulator func(acc A, v T) A
 		acc := supplier()
 		return func(v T) { acc = accumulator(acc, v) }, func() R { return finisher(acc) }
 	}}
-}
-
-// Collect reduces the elements of s with c.
-func Collect[T, R any](s Stream[T], c Collector[T, R]) R {
-	checkFunc(c.start == nil, "Collect")
-	add, finish := c.start()
-	for v := range s.All() {
-		add(v)
-	}
-	return finish()
 }
 
 // IntoSlice returns a Collector of the elements into a slice, in order. The result is
@@ -142,7 +132,7 @@ func bestBy[T any](better func(v, best T) bool) Collector[T, optional.Optional[T
 }
 
 // Folding returns a Collector that combines the elements from left to right, starting
-// from initial. It is the Collector form of the Fold function.
+// from initial. It is the Collector form of Stream.Fold.
 func Folding[T, A any](initial A, accumulator func(acc A, v T) A) Collector[T, A] {
 	checkFunc(accumulator == nil, "Folding")
 	return Collector[T, A]{start: func() (func(T), func() A) {
@@ -252,7 +242,7 @@ func CollectingAndThen[T, R, S any](downstream Collector[T, R], finisher func(R)
 // Teeing returns a Collector that passes every element to both first and second, then
 // combines their results with merge. It computes two results in one pass:
 //
-//	spread := stream.Collect(prices, stream.Teeing(
+//	spread := prices.Collect(stream.Teeing(
 //		stream.MinBy(cmp.Compare[int]), stream.MaxBy(cmp.Compare[int]), newRange))
 func Teeing[T, R1, R2, R any](first Collector[T, R1], second Collector[T, R2], merge func(R1, R2) R) Collector[T, R] {
 	checkFunc(merge == nil, "Teeing")

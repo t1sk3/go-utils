@@ -12,11 +12,10 @@
 //
 //	names := stream.FromSlice(users).Filter(User.IsActive).Map(User.Name).ToSlice()
 //
-// Each of these methods also exists as a package-level function. Operations that need
-// a constraint on the element type, such as Sum, Sort and Distinct, are functions only,
-// because a method cannot add a constraint to its receiver's type parameter. So are
-// Enumerate, Chunk, Window and Zip, whose method forms the compiler rejects as an
-// instantiation cycle:
+// Operations that need a constraint on the element type, such as Sum, Sort and
+// Distinct, are package-level functions, because a method cannot add a constraint to
+// its receiver's type parameter. So are Enumerate, Chunk, Window and Zip, whose method
+// forms the compiler rejects as an instantiation cycle:
 //
 //	total := stream.Sum(stream.FromSlice(orders).Map(Order.Amount))
 //
@@ -60,13 +59,6 @@ func Of[T any](values ...T) Stream[T] {
 // must not be modified while the stream is in use.
 func FromSlice[T any](s []T) Stream[T] {
 	return Stream[T]{slice: s, size: len(s)}
-}
-
-// FromArray returns a Stream over the elements of s.
-//
-// Deprecated: Use FromSlice.
-func FromArray[T any](s []T) Stream[T] {
-	return FromSlice(s)
 }
 
 // FromSeq returns a Stream over an iterator, such as maps.Keys(m) or slices.Values(s).
@@ -239,9 +231,17 @@ func (s Stream[T]) Filter(predicate func(T) bool) Stream[T] {
 }
 
 // Map returns a Stream of the results of applying mapper to each element. The result
-// may have a different element type. It is the method form of the Map function.
+// may have a different element type.
 func (s Stream[T]) Map[R any](mapper func(T) R) Stream[R] {
-	return Map(s, mapper)
+	checkFunc(mapper == nil, "Map")
+	src := s.All()
+	return Stream[R]{size: s.size, seq: func(yield func(R) bool) {
+		for v := range src {
+			if !yield(mapper(v)) {
+				return
+			}
+		}
+	}}
 }
 
 // Peek returns a Stream that calls action on each element as it flows through,
