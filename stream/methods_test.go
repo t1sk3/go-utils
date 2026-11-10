@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strconv"
 	"testing"
+
+	"github.com/t1sk3/go-utils/types/pair"
 )
 
 func TestMapMethodChangesType(t *testing.T) {
@@ -52,7 +54,7 @@ func TestStreamMethodResults(t *testing.T) {
 		t.Errorf("FlatMap = %v", got)
 	}
 	if got := s.Collect(Counting[int]()); got != 8 {
-		t.Errorf("Counting.Collect() = %d", got)
+		t.Errorf("Collect(Counting) = %d", got)
 	}
 }
 
@@ -89,5 +91,44 @@ func TestStreamMethodsRejectNilFunctions(t *testing.T) {
 		"Parallel Map":     func() { s.Parallel(1).Map[string](nil) },
 	} {
 		t.Run(name, func(t *testing.T) { mustPanic(t, f) })
+	}
+}
+
+func TestSliceAndPairMethodsInferTheirTypes(t *testing.T) {
+	// S and P are inferred as exactly []T and pair.Pair[...], so the results have the
+	// same types the former functions returned and fit where those are expected.
+	var chunks Stream[[]int] = Range(0, 5).Chunk(2)
+	var windows Stream[[]int] = Range(0, 4).Window(2)
+	var indexed Stream[pair.Pair[int, string]] = Of("a", "b").Enumerate()
+	var zipped Stream[pair.Pair[int, string]] = Of(1, 2).Zip(Of("x", "y"))
+	if got := chunks.Count() + windows.Count() + indexed.Count() + zipped.Count(); got != 3+3+2+2 {
+		t.Errorf("counts = %d", got)
+	}
+	// ToSeq2 takes a Stream[pair.Pair[K, V]], so this only compiles if P was inferred.
+	if got := maps.Collect(ToSeq2(Of("a", "b").Enumerate())); !maps.Equal(got, map[int]string{0: "a", 1: "b"}) {
+		t.Errorf("ToSeq2(Enumerate) = %v", got)
+	}
+	// Explicit type arguments are accepted too.
+	if got := Range(0, 4).Chunk[[]int](3).Count(); got != 2 {
+		t.Errorf("Chunk[[]int] count = %d", got)
+	}
+}
+
+func TestSliceAndPairMethodsChain(t *testing.T) {
+	// Each call on the result needs a new instantiation, Stream[[][]int] and so on,
+	// which is what the direct form Stream[[]T] could not declare.
+	got := Range(0, 5).Window(2).Window(2).Map(func(w [][]int) int { return w[1][1] }).ToSlice()
+	if want := []int{2, 3, 4}; !slices.Equal(got, want) {
+		t.Errorf("Window.Window.Map = %v, want %v", got, want)
+	}
+	sums := Range(0, 7).Chunk(3).Map(func(c []int) int { return Sum(FromSlice(c)) }).ToSlice()
+	if want := []int{3, 12, 6}; !slices.Equal(sums, want) {
+		t.Errorf("Chunk.Map = %v, want %v", sums, want)
+	}
+	labels := Of("a", "b").Enumerate().Zip(Of(true, false)).Map(func(p pair.Pair[pair.Pair[int, string], bool]) string {
+		return strconv.Itoa(p.First.First) + p.First.Second + strconv.FormatBool(p.Second)
+	}).ToSlice()
+	if want := []string{"0atrue", "1bfalse"}; !slices.Equal(labels, want) {
+		t.Errorf("Enumerate.Zip.Map = %v, want %v", labels, want)
 	}
 }

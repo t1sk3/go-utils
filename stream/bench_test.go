@@ -52,18 +52,18 @@ func BenchmarkFilterFindFirst10k(b *testing.B) {
 
 func BenchmarkZip10k_Slice(b *testing.B) {
 	for b.Loop() {
-		sink = Zip(FromSlice(ints10k), FromSlice(ints10k)).Count()
+		sink = FromSlice(ints10k).Zip(FromSlice(ints10k)).Count()
 	}
 }
 
 func BenchmarkZip10k_Lazy(b *testing.B) {
 	for b.Loop() {
-		sink = Zip(FromSlice(ints10k), Range(0, 10_000)).Count()
+		sink = FromSlice(ints10k).Zip(Range(0, 10_000)).Count()
 	}
 }
 
 func BenchmarkChunk10k(b *testing.B) {
 	for b.Loop() {
-		sink = Chunk(FromSlice(ints10k), 100).Count()
+		sink = FromSlice(ints10k).Chunk(100).Count()
 	}
 }

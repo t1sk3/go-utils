@@ -33,6 +33,18 @@ accept or return an `optional.Optional` without depending on `stream`.
 Releases are tagged `vX.Y.Z`. The module is still at v0, so minor releases may contain
 breaking changes until v1.0.0. See [RELEASING.md](RELEASING.md) for how releases are cut.
 
+### Upgrading from v0.6.1
+
+`Zip`, `Enumerate`, `Chunk` and `Window` are methods now, and the functions are gone:
+
+| Removed | Use instead |
+|---|---|
+| `stream.Zip(a, b)` | `a.Zip(b)` |
+| `stream.Enumerate(s)` | `s.Enumerate()` |
+| `stream.Chunk(s, n)`, `stream.Window(s, n)` | `s.Chunk(n)`, `s.Window(n)` |
+
+The results have the same types as before (`Stream[[]T]`, `Stream[pair.Pair[...]]`).
+
 ### Upgrading to v0.6.1
 
 v0.6.1 removes the package functions that v0.6.0 kept next to the new generic methods.
@@ -87,8 +99,7 @@ lengths := stream.Of("go", "rust").Fold(0, func(n int, w string) int { return n 
 ```
 
 Operations that need `comparable`, `cmp.Ordered` or a number type are package
-functions, because a method can't add a constraint to the stream's own element type. `Enumerate`, `Chunk`, `Window` and `Zip` are functions only
-too: the compiler rejects their method forms as an instantiation cycle.
+functions, because a method can't add a constraint to the stream's own element type.
 
 ```go
 total := stream.Sum(stream.FromSlice(orders).Map(Order.Total))
@@ -107,15 +118,15 @@ for k := range stream.Sort(stream.FromSeq(maps.Keys(m))).All() { ... }
 Two-value iterators come in as streams of `pair.Pair` and go back out with `ToSeq2`:
 
 ```go
-for i, name := range stream.ToSeq2(stream.Enumerate(names)) { ... }
-byID := maps.Collect(stream.ToSeq2(stream.Zip(ids, users)))
+for i, name := range stream.ToSeq2(names.Enumerate()) { ... }
+byID := maps.Collect(stream.ToSeq2(ids.Zip(users)))
 ```
 
 Batching, sliding windows and running totals work on infinite streams too:
 
 ```go
-for batch := range stream.Chunk(rows, 500).All() { db.InsertMany(batch) }
-avg := stream.Window(prices, 7).Map(mean)                        // 7-day moving average
+for batch := range rows.Chunk(500).All() { db.InsertMany(batch) }
+avg := prices.Window(7).Map(mean)                                // 7-day moving average
 balance := changes.Scan(0, func(t, c int) int { return t + c })
 ```
 
@@ -165,9 +176,9 @@ stream.FromSlice(users).Sorted(stream.ThenComparing(stream.Reversed(byAge), byNa
 | | |
 |---|---|
 | **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `FromOptional`, `OfNullable`, `Range`, `RangeClosed`, `Iterate`, `IterateWhile`, `Generate`, `Concat`, `Empty` |
-| **Intermediate methods** | `Filter`, `Map`, `FlatMap`, `DistinctBy`, `Scan`, `MapConcurrent`, `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted`, `Parallel` |
+| **Intermediate methods** | `Filter`, `Map`, `FlatMap`, `DistinctBy`, `Scan`, `Zip`, `Enumerate`, `Chunk`, `Window`, `MapConcurrent`, `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted`, `Parallel` |
 | **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Fold`, `Collect`, `Min`, `Max`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `All` |
-| **Functions** | `Zip`, `Enumerate`, `Chunk`, `Window`, `Distinct`, `Sort`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `ToSet`, `ToSeq2`, `Join`, `Identity` |
+| **Functions** | `Distinct`, `Sort`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `ToSet`, `ToSeq2`, `Join`, `Identity` |
 | **Comparators** | `Comparing`, `Reversed`, `ThenComparing`, `NilsFirst`, `NilsLast` |
 | **Predicates** | `IsEven`, `IsOdd`, `IsPositive`, `IsNegative`, `IsZero`, `Equal`, `GreaterThan`, `LessThan`, `AtLeast`, `AtMost`, `Between`, `In`, `Not`, `And`, `Or` |
 | **Collectors** | `Collect`, `NewCollector`, `IntoSlice`, `IntoSet`, `Joining`, `Counting`, `Summing`, `Averaging`, `MinBy`, `MaxBy`, `Folding`, `GroupingBy`, `PartitioningBy`, `Mapping`, `FlatMapping`, `Filtering`, `CollectingAndThen`, `Teeing` |
