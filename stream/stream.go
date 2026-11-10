@@ -14,8 +14,7 @@
 //
 // Operations that need a constraint on the element type, such as Sum, Sort and
 // Distinct, are package-level functions, because a method cannot add a constraint to
-// its receiver's type parameter. So are Enumerate, Chunk, Window and Zip, whose method
-// forms the compiler rejects as an instantiation cycle:
+// its receiver's type parameter:
 //
 //	total := stream.Sum(stream.FromSlice(orders).Map(Order.Amount))
 //

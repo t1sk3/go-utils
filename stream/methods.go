@@ -1,14 +1,27 @@
 package stream
 
+import (
+	"iter"
+	"slices"
+
+	"github.com/t1sk3/go-utils/types/pair"
+)
+
 // This file holds the Stream methods that introduce a type parameter of their own,
 // which Go allows since Go 1.27. Map is in stream.go with the other intermediate
 // operations.
 //
 // Operations that constrain T (Distinct, Sort, Sum, Average, Summarize, Min, Max, ToSet,
 // ToSeq2 and Join) are package-level functions in functions.go, because a method cannot
-// add a constraint to its receiver's type parameter. So are Enumerate, Chunk, Window
-// and Zip: a method of Stream[T] that returns a Stream of a type built from T, such as
-// Stream[[]T], is rejected by the compiler as an instantiation cycle.
+// add a constraint to its receiver's type parameter.
+//
+// Chunk, Window, Enumerate and Zip return a Stream of a type built from T, such as
+// []T. Written directly, as Chunk(n int) Stream[[]T], the compiler rejects that as an
+// instantiation cycle: Stream[T] would need Stream[[]T], whose Chunk would need
+// Stream[[][]T], and so on. They therefore name the element type with a type parameter
+// of their own whose constraint is exactly that type, such as [S []T]. The constraint
+// has a single type, so Go infers S and callers never write it. For the same reason
+// their bodies must not call each other or a function that returns Stream[[]T].
 
 // FlatMap returns a Stream of the elements of each stream produced by applying mapper
 // to the elements of s.
@@ -155,4 +168,142 @@ func (s Stream[T]) Collect[R any](c Collector[T, R]) R {
 func (s Stream[T]) MapConcurrent[R any](n int, mapper func(T) R) Stream[R] {
 	checkFunc(mapper == nil, "MapConcurrent")
 	return s.Parallel(n).Map(mapper).Sequential()
+}
+
+// Enumerate returns a Stream that pairs each element with its index, starting at 0.
+// P is always pair.Pair[int, T] and is inferred.
+func (s Stream[T]) Enumerate[P pair.Pair[int, T]]() Stream[P] {
+	src := s.All()
+	return Stream[P]{size: s.size, seq: func(yield func(P) bool) {
+		i := 0
+		for v := range src {
+			if !yield(P(pair.Of(i, v))) {
+				return
+			}
+			i++
+		}
+	}}
+}
+
+// Zip returns a Stream that pairs the elements of s and b by position. It ends when
+// either stream ends, so zipping with an infinite stream is fine. P is always
+// pair.Pair[T, B] and is inferred.
+//
+// When b comes straight from FromSlice or Of, Zip indexes it directly; otherwise it
+// has to step b with iter.Pull, which is roughly ten times slower per element. If
+// only one side is a plain slice, pass it as b.
+func (s Stream[T]) Zip[B any, P pair.Pair[T, B]](b Stream[B]) Stream[P] {
+	size := -1
+	if s.size >= 0 && b.size >= 0 {
+		size = min(s.size, b.size)
+	}
+	srcA := s.All()
+	if b.seq == nil {
+		// b is a plain slice: index it instead of starting a coroutine with iter.Pull.
+		bs := b.slice
+		return Stream[P]{size: size, seq: func(yield func(P) bool) {
+			if len(bs) == 0 {
+				return
+			}
+			i := 0
+			for va := range srcA {
+				if !yield(P(pair.Of(va, bs[i]))) {
+					return
+				}
+				if i++; i == len(bs) {
+					return
+				}
+			}
+		}}
+	}
+	srcB := b.seq
+	return Stream[P]{size: size, seq: func(yield func(P) bool) {
+		nextB, stop := iter.Pull(srcB)
+		defer stop()
+		for va := range srcA {
+			vb, ok := nextB()
+			if !ok || !yield(P(pair.Of(va, vb))) {
+				return
+			}
+		}
+	}}
+}
+
+// Chunk returns a Stream of consecutive, non-overlapping slices of n elements. The
+// last chunk is shorter if the elements do not divide evenly. Each chunk is a new
+// slice that the caller may keep or modify. S is always []T and is inferred. Chunk
+// panics if n is not positive.
+//
+//	stream.Range(0, 5).Chunk(2) // [0 1] [2 3] [4]
+func (s Stream[T]) Chunk[S []T](n int) Stream[S] {
+	if n <= 0 {
+		panic("stream: Chunk requires a positive size")
+	}
+	size := -1
+	if s.size >= 0 {
+		size = s.size / n
+		if s.size%n != 0 {
+			size++
+		}
+	}
+	src := s.All()
+	capacity := capFor(n, s.size)
+	return Stream[S]{size: size, seq: func(yield func(S) bool) {
+		var buf []T
+		for v := range src {
+			if buf == nil {
+				buf = make([]T, 0, capacity)
+			}
+			buf = append(buf, v)
+			if len(buf) == n {
+				if !yield(S(buf)) {
+					return
+				}
+				buf = nil
+			}
+		}
+		if len(buf) > 0 {
+			yield(S(buf))
+		}
+	}}
+}
+
+// Window returns a Stream of every run of n consecutive elements, advancing one
+// element at a time. A stream with fewer than n elements produces no windows. Each
+// window is a new slice that the caller may keep or modify. S is always []T and is
+// inferred. Window panics if n is not positive.
+//
+//	stream.Range(0, 4).Window(2) // [0 1] [1 2] [2 3]
+func (s Stream[T]) Window[S []T](n int) Stream[S] {
+	if n <= 0 {
+		panic("stream: Window requires a positive size")
+	}
+	size := -1
+	if s.size >= 0 {
+		size = max(s.size-n+1, 0)
+	}
+	src := s.All()
+	capacity := capFor(n, s.size)
+	return Stream[S]{size: size, seq: func(yield func(S) bool) {
+		buf := make([]T, 0, capacity)
+		for v := range src {
+			if len(buf) == n {
+				copy(buf, buf[1:])
+				buf = buf[:n-1]
+			}
+			buf = append(buf, v)
+			if len(buf) == n && !yield(S(slices.Clone(buf))) {
+				return
+			}
+		}
+	}}
+}
+
+// capFor returns the capacity to allocate for a buffer of up to n elements drawn
+// from a stream of the given size, which may be -1 if unknown.
+func capFor(n, size int) int {
+	if size >= 0 {
+		return min(n, size)
+	}
+	return n
 }

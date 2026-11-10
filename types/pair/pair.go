@@ -1,6 +1,6 @@
 // Package pair provides Pair, a value holding two values of possibly different types.
 //
-// Pair is what stream.Zip, stream.Enumerate and stream.FromMap produce, and it is the
+// Pair is what Stream.Zip, Stream.Enumerate and stream.FromMap produce, and it is the
 // usual way to carry a key and a value, or two related results, through generic code
 // that only has room for one type parameter.
 package pair

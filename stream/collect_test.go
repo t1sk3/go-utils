@@ -15,20 +15,20 @@ func TestZip(t *testing.T) {
 		name string
 		got  Stream[pair.Pair[int, string]]
 	}{
-		{"slice b, a shorter", Zip(Of(1, 2), Of("a", "b", "c"))},
-		{"slice b, b shorter", Zip(Range(1, 100), Of("a", "b"))},
-		{"lazy b", Zip(Of(1, 2, 3), Of("a", "b").Filter(func(string) bool { return true }))},
-		{"infinite a", Zip(Iterate(1, func(i int) int { return i + 1 }), Of("a", "b"))},
+		{"slice b, a shorter", Of(1, 2).Zip(Of("a", "b", "c"))},
+		{"slice b, b shorter", Range(1, 100).Zip(Of("a", "b"))},
+		{"lazy b", Of(1, 2, 3).Zip(Of("a", "b").Filter(func(string) bool { return true }))},
+		{"infinite a", Iterate(1, func(i int) int { return i + 1 }).Zip(Of("a", "b"))},
 	}
 	for _, tt := range tests {
 		if got := tt.got.ToSlice(); !reflect.DeepEqual(got, want) {
 			t.Errorf("%s: Zip = %v, want %v", tt.name, got, want)
 		}
 	}
-	if n := Zip(Of(1, 2), Empty[string]()).Count(); n != 0 {
+	if n := Of(1, 2).Zip(Empty[string]()).Count(); n != 0 {
 		t.Errorf("Zip with empty = %d elements", n)
 	}
-	if got := Zip(Of(1, 2, 3), Of("a", "b")).size; got != 2 {
+	if got := Of(1, 2, 3).Zip(Of("a", "b")).size; got != 2 {
 		t.Errorf("Zip size hint = %d, want 2", got)
 	}
 }
@@ -37,25 +37,25 @@ func TestZip_StopsPullingWhenBothSidesAreDone(t *testing.T) {
 	pulledA, pulledB := 0, 0
 	a := Range(0, 10).Peek(func(int) { pulledA++ })
 	b := Range(0, 10).Peek(func(int) { pulledB++ })
-	Zip(a, b).Limit(3).ToSlice()
+	a.Zip(b).Limit(3).ToSlice()
 	if pulledA != 3 || pulledB != 3 {
 		t.Errorf("pulled %d from a and %d from b, want 3 and 3", pulledA, pulledB)
 	}
 
 	pulledA = 0
-	Zip(a, Of(1, 2)).ToSlice()
+	a.Zip(Of(1, 2)).ToSlice()
 	if pulledA != 2 {
 		t.Errorf("pulled %d from a when zipped with a 2-element slice, want 2", pulledA)
 	}
 }
 
 func TestEnumerate(t *testing.T) {
-	got := Enumerate(Of("a", "b", "c").Skip(1)).ToSlice()
+	got := Of("a", "b", "c").Skip(1).Enumerate().ToSlice()
 	want := []pair.Pair[int, string]{pair.Of(0, "b"), pair.Of(1, "c")}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Enumerate = %v, want %v", got, want)
 	}
-	s := Enumerate(Of(1, 2))
+	s := Of(1, 2).Enumerate()
 	if first, second := s.ToSlice(), s.ToSlice(); !reflect.DeepEqual(first, second) {
 		t.Errorf("Enumerate is not reusable: %v then %v", first, second)
 	}
@@ -77,7 +77,7 @@ func TestSeq2RoundTrip(t *testing.T) {
 	}
 
 	var keys []int
-	for i, v := range ToSeq2(Enumerate(Of("x", "y", "z"))) {
+	for i, v := range ToSeq2(Of("x", "y", "z").Enumerate()) {
 		if v == "z" {
 			break
 		}
@@ -101,32 +101,32 @@ func TestChunk(t *testing.T) {
 		got  Stream[[]int]
 		want [][]int
 	}{
-		{"uneven", Chunk(Range(0, 5), 2), [][]int{{0, 1}, {2, 3}, {4}}},
-		{"even", Chunk(Range(0, 4), 2), [][]int{{0, 1}, {2, 3}}},
-		{"larger than stream", Chunk(Of(1, 2), 10), [][]int{{1, 2}}},
-		{"empty", Chunk(Empty[int](), 3), [][]int{}},
-		{"infinite", Chunk(Iterate(0, func(i int) int { return i + 1 }), 2).Limit(2), [][]int{{0, 1}, {2, 3}}},
+		{"uneven", Range(0, 5).Chunk(2), [][]int{{0, 1}, {2, 3}, {4}}},
+		{"even", Range(0, 4).Chunk(2), [][]int{{0, 1}, {2, 3}}},
+		{"larger than stream", Of(1, 2).Chunk(10), [][]int{{1, 2}}},
+		{"empty", Empty[int]().Chunk(3), [][]int{}},
+		{"infinite", Iterate(0, func(i int) int { return i + 1 }).Chunk(2).Limit(2), [][]int{{0, 1}, {2, 3}}},
 	}
 	for _, tt := range tests {
 		if got := tt.got.ToSlice(); !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%s: Chunk = %v, want %v", tt.name, got, tt.want)
 		}
 	}
-	if got := Chunk(Range(0, 5), 2).size; got != 3 {
+	if got := Range(0, 5).Chunk(2).size; got != 3 {
 		t.Errorf("Chunk size hint = %d, want 3", got)
 	}
 }
 
 func TestChunkAndWindow_ReturnIndependentSlices(t *testing.T) {
 	src := []int{1, 2, 3, 4}
-	chunks := Chunk(FromSlice(src), 2).ToSlice()
+	chunks := FromSlice(src).Chunk(2).ToSlice()
 	chunks[0][0] = 99
 	chunks[0] = append(chunks[0], 100)
 	if src[0] != 1 || chunks[1][0] != 3 {
 		t.Errorf("chunks share memory: src=%v chunks=%v", src, chunks)
 	}
 
-	windows := Window(FromSlice(src), 2).ToSlice()
+	windows := FromSlice(src).Window(2).ToSlice()
 	windows[0][1] = 99
 	if windows[1][0] != 2 || src[1] != 2 {
 		t.Errorf("windows share memory: src=%v windows=%v", src, windows)
@@ -139,18 +139,18 @@ func TestWindow(t *testing.T) {
 		got  Stream[[]int]
 		want [][]int
 	}{
-		{"pairs", Window(Range(0, 4), 2), [][]int{{0, 1}, {1, 2}, {2, 3}}},
-		{"size 1", Window(Of(5, 6), 1), [][]int{{5}, {6}}},
-		{"exact", Window(Of(1, 2, 3), 3), [][]int{{1, 2, 3}}},
-		{"too short", Window(Of(1, 2), 3), [][]int{}},
-		{"infinite", Window(Iterate(0, func(i int) int { return i + 1 }), 3).Limit(2), [][]int{{0, 1, 2}, {1, 2, 3}}},
+		{"pairs", Range(0, 4).Window(2), [][]int{{0, 1}, {1, 2}, {2, 3}}},
+		{"size 1", Of(5, 6).Window(1), [][]int{{5}, {6}}},
+		{"exact", Of(1, 2, 3).Window(3), [][]int{{1, 2, 3}}},
+		{"too short", Of(1, 2).Window(3), [][]int{}},
+		{"infinite", Iterate(0, func(i int) int { return i + 1 }).Window(3).Limit(2), [][]int{{0, 1, 2}, {1, 2, 3}}},
 	}
 	for _, tt := range tests {
 		if got := tt.got.ToSlice(); !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%s: Window = %v, want %v", tt.name, got, tt.want)
 		}
 	}
-	if got := Window(Range(0, 4), 2).size; got != 3 {
+	if got := Range(0, 4).Window(2).size; got != 3 {
 		t.Errorf("Window size hint = %d, want 3", got)
 	}
 }
@@ -184,8 +184,8 @@ func TestNewOperations_NilFunctionPanics(t *testing.T) {
 	for name, f := range map[string]func(){
 		"Scan":      func() { Of(1).Scan[int](0, nil) },
 		"Partition": func() { Of(1).Partition(nil) },
-		"Chunk(0)":  func() { Chunk(Of(1), 0) },
-		"Window(0)": func() { Window(Of(1), -1) },
+		"Chunk(0)":  func() { Of(1).Chunk(0) },
+		"Window(0)": func() { Of(1).Window(-1) },
 	} {
 		func() {
 			defer func() {
