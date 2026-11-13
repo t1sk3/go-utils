@@ -219,3 +219,19 @@ func (o Optional[T]) FlatMap[R any](f func(T) Optional[R]) Optional[R] {
 	}
 	return f(o.value)
 }
+
+// Equal reports whether a and b are both empty, or both hold the same value. For
+// comparable T it gives the same answer as a == b; it exists for use as a function
+// value, such as with slices.EqualFunc.
+func Equal[T comparable](a, b Optional[T]) bool {
+	return a.present == b.present && a.value == b.value
+}
+
+// EqualFunc reports whether a and b are both empty, or both hold values that eq
+// reports as equal. Use it when T is not comparable, such as a slice.
+func EqualFunc[T any](a, b Optional[T], eq func(T, T) bool) bool {
+	if !a.present || !b.present {
+		return a.present == b.present
+	}
+	return eq(a.value, b.value)
+}

@@ -60,8 +60,17 @@ func Go[T any](f func() (T, error)) *Future[T] {
 	if f == nil {
 		panic("future: Go requires a non-nil function")
 	}
+	return start(f, nil)
+}
+
+// start runs f on a new goroutine and returns a Future of its result. If after is not
+// nil, it is called once the Future has completed.
+func start[T any](f func() (T, error), after func()) *Future[T] {
 	fut := &Future[T]{done: make(chan struct{})}
 	go func() {
+		if after != nil {
+			defer after()
+		}
 		defer close(fut.done)
 		completed := false
 		defer func() {

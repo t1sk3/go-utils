@@ -126,6 +126,45 @@ func (v Vec2[T]) Lerp(o Vec2[T], t float64) Vec2[T] {
 	return Vec2[T]{lerp(v.X, o.X, t), lerp(v.Y, o.Y, t)}
 }
 
+// Slerp returns the spherical interpolation between v (at t = 0) and o (at t = 1): the
+// direction turns at a constant rate along the arc between them, and the length changes
+// linearly. When the arc is not defined, because either vector is zero or they point
+// the same or opposite ways, Slerp returns Lerp.
+func (v Vec2[T]) Slerp(o Vec2[T], t float64) Vec2[T] {
+	dot := float64(v.X)*float64(o.X) + float64(v.Y)*float64(o.Y)
+	ka, kb, ok := slerpWeights(dot, v.Length(), o.Length(), t)
+	if !ok {
+		return v.Lerp(o, t)
+	}
+	return Vec2[T]{T(ka*float64(v.X) + kb*float64(o.X)), T(ka*float64(v.Y) + kb*float64(o.Y))}
+}
+
+// ClampLength returns v shortened to length limit if it is longer, keeping its
+// direction, and v itself otherwise.
+func (v Vec2[T]) ClampLength(limit float64) Vec2[T] {
+	k, ok := clampScale(v.Length(), limit)
+	if !ok {
+		return v
+	}
+	return Vec2[T]{T(float64(v.X) * k), T(float64(v.Y) * k)}
+}
+
+// Floor returns v with every component rounded down. Integer vectors are unchanged.
+func (v Vec2[T]) Floor() Vec2[T] {
+	return Vec2[T]{roundWith(v.X, math.Floor), roundWith(v.Y, math.Floor)}
+}
+
+// Ceil returns v with every component rounded up. Integer vectors are unchanged.
+func (v Vec2[T]) Ceil() Vec2[T] {
+	return Vec2[T]{roundWith(v.X, math.Ceil), roundWith(v.Y, math.Ceil)}
+}
+
+// Round returns v with every component rounded to the nearest integer, halves away
+// from zero. Integer vectors are unchanged.
+func (v Vec2[T]) Round() Vec2[T] {
+	return Vec2[T]{roundWith(v.X, math.Round), roundWith(v.Y, math.Round)}
+}
+
 // AngleTo returns the unsigned angle between v and o in radians, in [0, π]. It
 // returns 0 if either vector is zero. Use Cross for the direction of rotation.
 func (v Vec2[T]) AngleTo(o Vec2[T]) float64 {

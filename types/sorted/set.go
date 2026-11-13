@@ -137,8 +137,59 @@ func (s *Set[T]) Backward() iter.Seq[T] {
 // in ascending order. It is empty if from is not less than to. s must not be modified
 // during iteration.
 func (s *Set[T]) Range(from, to T) iter.Seq[T] {
+	return keys(s.m.Range(from, to))
+}
+
+// RangeClosed returns an iterator over the values from from to to, both inclusive, in
+// ascending order. s must not be modified during iteration.
+func (s *Set[T]) RangeClosed(from, to T) iter.Seq[T] {
+	return keys(s.m.RangeClosed(from, to))
+}
+
+// From returns an iterator over the values greater than or equal to from, in ascending
+// order. s must not be modified during iteration.
+func (s *Set[T]) From(from T) iter.Seq[T] {
+	return keys(s.m.From(from))
+}
+
+// Until returns an iterator over the values less than to, in ascending order. s must
+// not be modified during iteration.
+func (s *Set[T]) Until(to T) iter.Seq[T] {
+	return keys(s.m.Until(to))
+}
+
+// BackwardFrom returns an iterator over the values less than or equal to from, in
+// descending order. s must not be modified during iteration.
+func (s *Set[T]) BackwardFrom(from T) iter.Seq[T] {
+	return keys(s.m.BackwardFrom(from))
+}
+
+// BackwardRange returns an iterator over the values from from (inclusive) down to to
+// (exclusive), in descending order. s must not be modified during iteration.
+func (s *Set[T]) BackwardRange(from, to T) iter.Seq[T] {
+	return keys(s.m.BackwardRange(from, to))
+}
+
+// Rank returns the number of values less than v, which is the position v has, or would
+// have, in ascending order. It takes logarithmic time.
+func (s *Set[T]) Rank(v T) int {
+	return s.m.Rank(v)
+}
+
+// At returns the value at position i in ascending order, starting at 0, or an empty
+// Optional if i is out of range. It takes logarithmic time.
+func (s *Set[T]) At(i int) optional.Optional[T] {
+	return key(s.m.At(i))
+}
+
+// keys returns the keys of seq.
+func keys[T any](seq iter.Seq2[T, struct{}]) iter.Seq[T] {
 	return func(yield func(T) bool) {
-		s.m.ascendRange(s.m.root, from, to, func(v T, _ struct{}) bool { return yield(v) })
+		for k := range seq {
+			if !yield(k) {
+				return
+			}
+		}
 	}
 }
 

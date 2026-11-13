@@ -92,6 +92,57 @@ func (m *Map[K, V]) ComputeIfAbsent(key K, f func(K) V) V {
 	return v
 }
 
+// GetOrDefault returns the value for key, or fallback if key is not present. It does
+// not store fallback; use PutIfAbsent or ComputeIfAbsent for that.
+func (m *Map[K, V]) GetOrDefault(key K, fallback V) V {
+	if v, ok := m.load(key); ok {
+		return v
+	}
+	return fallback
+}
+
+// Replace sets the value for key only if key is present, and returns the previous
+// value. It returns an empty Optional, and stores nothing, if key is not present.
+func (m *Map[K, V]) Replace(key K, value V) optional.Optional[V] {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	old, ok := m.m[key]
+	if ok {
+		m.m[key] = value
+	}
+	return optional.OfOk(old, ok)
+}
+
+// ComputeIfPresent replaces the value for key atomically if key is present. f receives
+// the current value and returns the new one, and false to remove the entry instead.
+// ComputeIfPresent returns what is now stored. If key is not present, f does not run
+// and the result is empty. See Map for what f may do.
+func (m *Map[K, V]) ComputeIfPresent(key K, f func(current V) (V, bool)) optional.Optional[V] {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	current, present := m.m[key]
+	if !present {
+		return optional.Empty[V]()
+	}
+	v, keep := f(current)
+	if !keep {
+		delete(m.m, key)
+		return optional.Empty[V]()
+	}
+	m.m[key] = v
+	return optional.Of(v)
+}
+
+// RemoveIf removes the entries that satisfy predicate, atomically with respect to the
+// other methods, and returns how many it removed. See Map for what predicate may do.
+func (m *Map[K, V]) RemoveIf(predicate func(key K, value V) bool) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	before := len(m.m)
+	maps.DeleteFunc(m.m, predicate)
+	return before - len(m.m)
+}
+
 // Compute replaces the entry for key atomically. f receives the current value, or the
 // zero value and false if key is not present. It returns the new value, and false to
 // remove the entry instead. Compute returns what is now stored. See Map for what f may do.
@@ -164,6 +215,55 @@ func (m *Map[K, V]) load(key K) (V, bool) {
 	defer m.mu.RUnlock()
 	v, ok := m.m[key]
 	return v, ok
+}
+
+// Keys returns an iterator over a snapshot of the keys, in no particular order, under
+// the same conditions as All.
+func (m *Map[K, V]) Keys() iter.Seq[K] {
+	return func(yield func(K) bool) {
+		for k := range m.Snapshot() {
+			if !yield(k) {
+				return
+			}
+		}
+	}
+}
+
+// Values returns an iterator over a snapshot of the values, in no particular order,
+// under the same conditions as All.
+func (m *Map[K, V]) Values() iter.Seq[V] {
+	return func(yield func(V) bool) {
+		for _, v := range m.Snapshot() {
+			if !yield(v) {
+				return
+			}
+		}
+	}
+}
+
+// CompareAndSwap sets the value for key to new if it is currently old, and reports
+// whether it did. It is a function rather than a method because it needs V to be
+// comparable, which a method cannot require.
+func CompareAndSwap[K, V comparable](m *Map[K, V], key K, old, new V) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if current, ok := m.m[key]; !ok || current != old {
+		return false
+	}
+	m.m[key] = new
+	return true
+}
+
+// CompareAndDelete removes key if its value is currently old, and reports whether it
+// did.
+func CompareAndDelete[K, V comparable](m *Map[K, V], key K, old V) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if current, ok := m.m[key]; !ok || current != old {
+		return false
+	}
+	delete(m.m, key)
+	return true
 }
 
 // set stores an entry. The write lock must be held.

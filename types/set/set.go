@@ -23,6 +23,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+
+	"github.com/t1sk3/go-utils/types/optional"
 )
 
 // Set is an unordered collection of distinct values. See the package documentation.
@@ -59,6 +61,44 @@ func (s *Set[T]) Add(values ...T) int {
 		s.m[v] = struct{}{}
 	}
 	return len(s.m) - before
+}
+
+// AddSeq adds the values of seq to s and returns how many were not already present.
+func (s *Set[T]) AddSeq(seq iter.Seq[T]) int {
+	if s.m == nil {
+		s.m = make(map[T]struct{})
+	}
+	before := len(s.m)
+	for v := range seq {
+		s.m[v] = struct{}{}
+	}
+	return len(s.m) - before
+}
+
+// Pop removes and returns some value of s, or returns an empty Optional if s is empty.
+// Which value it picks is unspecified. It is the way to work through a Set that grows
+// while it is being processed, such as a set of items still to visit.
+func (s *Set[T]) Pop() optional.Optional[T] {
+	for v := range s.m {
+		if v != v {
+			// delete cannot remove a value that is not equal to itself, such as NaN,
+			// so rebuild the map without this one occurrence of it.
+			rebuilt := make(map[T]struct{}, len(s.m))
+			skipped := false
+			for u := range s.m {
+				if u != u && !skipped {
+					skipped = true
+					continue
+				}
+				rebuilt[u] = struct{}{}
+			}
+			s.m = rebuilt
+			return optional.Of(v)
+		}
+		delete(s.m, v)
+		return optional.Of(v)
+	}
+	return optional.Empty[T]()
 }
 
 // Remove removes the given values from s and returns how many were present. Values
@@ -122,6 +162,36 @@ func (s *Set[T]) Clear() {
 func (s Set[T]) Has(v T) bool {
 	_, ok := s.m[v]
 	return ok
+}
+
+// HasAll reports whether every one of values is in s. It is true for no values.
+func (s Set[T]) HasAll(values ...T) bool {
+	for _, v := range values {
+		if _, ok := s.m[v]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// HasAny reports whether at least one of values is in s. It is false for no values.
+func (s Set[T]) HasAny(values ...T) bool {
+	for _, v := range values {
+		if _, ok := s.m[v]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// ToSlice returns the values in a new slice, in no particular order. The result is
+// never nil. For a sorted slice, use slices.Sorted(s.All()).
+func (s Set[T]) ToSlice() []T {
+	out := make([]T, 0, len(s.m))
+	for v := range s.m {
+		out = append(out, v)
+	}
+	return out
 }
 
 // Len returns the number of values in s.

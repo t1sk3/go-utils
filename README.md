@@ -13,8 +13,8 @@ Small, dependency-free generic utilities.
 | Package | What it gives you |
 |---|---|
 | [`stream`](stream) | Lazy, chainable pipelines over slices, iterators and generators |
-| [`future`](future) | `Future[T]`, the typed result of work running on another goroutine, with `All`, `Any` and `Then` |
-| [`concurrent`](concurrent) | `Map[K, V]`, a typed map with atomic `ComputeIfAbsent`, `Compute` and `Merge` |
+| [`future`](future) | `Future[T]`, the typed result of work running on another goroutine, with `All`, `Any`, `Then`, `Promise` and `Pool` |
+| [`concurrent`](concurrent) | `Map[K, V]` with atomic `ComputeIfAbsent`, `Compute` and `Merge`, plus `ShardedMap` and `Set` |
 | [`optional`](types/optional) | A zero-allocation container for a value that may be absent |
 | [`deque`](types/deque) | `Deque[T]`, a double-ended queue that also works as a FIFO queue or a stack |
 | [`pq`](types/pq) | `Queue[T]`, a priority queue ordered by a comparator |
@@ -23,6 +23,14 @@ Small, dependency-free generic utilities.
 | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
 | [`linked`](types/linked) | `Map[K, V]` and `Set[T]` that remember insertion order, which also makes an LRU cache simple |
 | [`vector`](types/vector) | `VecN[T]` of any dimension, plus `Vec2[T]` and `Vec3[T]` with `X`, `Y`, `Z` fields |
+| [`result`](types/result) | `Result[T]`, a success or an error as one value |
+| [`triple`](types/triple) | `Triple[A, B, C]`, three values of possibly different types |
+| [`multimap`](types/multimap) | `Multimap[K, V]`, any number of values per key |
+| [`bimap`](types/bimap) | `BiMap[K, V]`, a one-to-one map with lookups from both sides |
+| [`ring`](types/ring) | `Ring[T]`, a fixed-size buffer that overwrites its oldest value |
+| [`trie`](types/trie) | `Trie[V]`, string keys with prefix search and longest-prefix match |
+| [`retry`](retry) | `Do`, which calls a function again when it fails, with backoff and jitter |
+| [`ratelimit`](ratelimit) | `Limiter`, a token bucket with `Allow` and `Wait` |
 | [`constraints`](types/constraints) | `Integer`, `Number`, `Numeric`, `SignedNumber`, `Basic`, ... constraints for generic code |
 
 Everything is one module, so a single `go get` gives you all packages:
@@ -134,6 +142,22 @@ ok := stream.FromSlice(images).Parallel(runtime.GOMAXPROCS(0)).
 	Count()
 ```
 
+Two options change how the parallel stages behave. `WithContext` cuts the stream short
+when a context ends, and `Unordered` lets results come out as they finish instead of in
+source order, so a slow element does not hold back the rest:
+
+```go
+pages := urls.Parallel(8).WithContext(ctx).Map(fetch).ToSlice() // check ctx.Err() afterwards
+urls.Parallel(8).Unordered().Map(fetch).Sequential().ForEach(index)
+```
+
+A step that can fail goes through `TryMap`, which produces a `result.Result` per element,
+and `CollectResults` stops at the first error:
+
+```go
+numbers, err := stream.CollectResults(lines.TryMap(strconv.Atoi))
+```
+
 Each element costs about half a microsecond of coordination, so this suits I/O and heavy
 computation, not cheap functions. See [Performance](#performance) for measurements.
 
@@ -147,10 +171,11 @@ stream.FromSlice(users).Sorted(stream.ThenComparing(stream.Reversed(byAge), byNa
 
 | | |
 |---|---|
-| **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `FromOptional`, `OfNullable`, `Range`, `RangeClosed`, `Iterate`, `IterateWhile`, `Generate`, `Concat`, `Empty` |
-| **Intermediate methods** | `Filter`, `Map`, `FlatMap`, `DistinctBy`, `Scan`, `Zip`, `Enumerate`, `Chunk`, `Window`, `MapConcurrent`, `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted`, `Parallel` |
-| **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Fold`, `Collect`, `Min`, `Max`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `All` |
-| **Functions** | `Distinct`, `Sort`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `ToSet`, `ToSeq2`, `Join`, `Identity` |
+| **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `FromOptional`, `OfNullable`, `FromChannel`, `Range`, `RangeClosed`, `Iterate`, `IterateWhile`, `Generate`, `Concat`, `Empty` |
+| **Intermediate methods** | `Filter`, `Map`, `TryMap`, `FlatMap`, `DistinctBy`, `Scan`, `Zip`, `ZipWith`, `Enumerate`, `Chunk`, `Window`, `MapConcurrent`, `Peek`, `Limit`, `Skip`, `TakeLast`, `TakeWhile`, `DropWhile`, `Sorted`, `Top`, `Reverse`, `Intersperse`, `Cycle`, `Parallel` |
+| **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Fold`, `Collect`, `Min`, `Max`, `MinBy`, `MaxBy`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `ToChannel`, `All` |
+| **Functions** | `Distinct`, `Sort`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `ToSet`, `ToSeq2`, `Join`, `Flatten`, `Unzip`, `CollectResults`, `Identity` |
+| **Parallel** | `Parallel`, `MapConcurrent`, `WithContext`, `Unordered`, `Filter`, `Map`, `Peek`, `ForEach`, `Sequential` |
 | **Comparators** | `Comparing`, `Reversed`, `ThenComparing`, `NilsFirst`, `NilsLast` |
 | **Predicates** | `IsEven`, `IsOdd`, `IsPositive`, `IsNegative`, `IsZero`, `Equal`, `GreaterThan`, `LessThan`, `AtLeast`, `AtMost`, `Between`, `In`, `Not`, `And`, `Or` |
 | **Collectors** | `Collect`, `NewCollector`, `IntoSlice`, `IntoSet`, `Joining`, `Counting`, `Summing`, `Averaging`, `MinBy`, `MaxBy`, `Folding`, `GroupingBy`, `PartitioningBy`, `Mapping`, `FlatMapping`, `Filtering`, `CollectingAndThen`, `Teeing` |
@@ -176,6 +201,17 @@ timeout := optional.FromMap(settings, "timeout").OrElse(30)
 `Optional[T]` is a plain value type. The zero value is empty, it never allocates,
 and it marshals to/from JSON as the value or `null` (use `json:",omitzero"` to drop
 empty fields).
+
+`optional.Field[T]` adds a third state for JSON: left out, `null`, or a value. That is
+what a PATCH request needs, where leaving a field out means "keep it" and `null` means
+"clear it":
+
+```go
+type UpdateUser struct {
+	Email optional.Field[string] `json:"email,omitzero"`
+}
+// req.Email.IsAbsent(), req.Email.IsNull(), or req.Email.Value()
+```
 
 It also reads nullable database columns: `Optional` implements `sql.Scanner`, so
 NULL scans to an empty Optional. Its `Value() (T, bool)` method rules out
@@ -203,7 +239,8 @@ missing := required.Difference(granted)
 `Set` has `Union`, `Intersection`, `Difference`, `SymmetricDifference`,
 `IsSubsetOf`, `IsSupersetOf`, `IsDisjoint`, `Equal`, iterates with `All()` and marshals
 to/from a JSON array, with the elements in a stable order. `Add`, `Remove`, `RemoveIf` and `RetainAll` return how many values
-they changed.
+they changed, `AddSeq` adds from an iterator, `HasAll` and `HasAny` test several values
+at once, and `Pop` takes some value out.
 Like a map, copies share storage; use `Clone` for an independent copy.
 
 ## vector
@@ -222,8 +259,10 @@ similarity := math.Cos(features.AngleTo(query))
 `VecN` is a slice, so it indexes, ranges and works with the `slices` package. All three
 have `Add`, `Sub`, `Mul`, `Div`, `Scale`, `DivScalar`, `Neg`, `Abs`, `Min`, `Max`, `Clamp`,
 `Sum`, `Dot`, `Length`, `LengthSquared`, `Distance`, `DistanceSquared`, `Normalize`, `Lerp`,
-`AngleTo`, `Project`, `Reflect`, `IsZero` and `ApproxEqual`. `Vec3` adds `Cross` and `XY`;
-`Vec2` adds a scalar `Cross`, `Perp`, `Rotate`, `Angle` and `FromPolar`.
+`Slerp`, `ClampLength`, `Floor`, `Ceil`, `Round`, `AngleTo`, `Project`, `Reflect`, `IsZero`
+and `ApproxEqual`, and so has `Vec4[T]`. `Vec3` adds `Cross`, `XY` and `Rotate` around an
+axis; `Vec2` adds a scalar `Cross`, `Perp`, `Rotate`, `Angle` and `FromPolar`; `VecN` adds
+`AddInPlace`, `SubInPlace` and `ScaleInPlace` for loops that must not allocate.
 
 Elements can be any integer or float type. Arithmetic stays in `T`; lengths and angles are
 `float64`, and results such as `Normalize` convert back to `T`, so for integer vectors
@@ -255,7 +294,21 @@ fastest, err := future.Any(ctx, future.Go(fromMirror1), future.Go(fromMirror2))
 
 A panic in the function becomes a `*future.PanicError` instead of crashing the program;
 its `Stack` field holds the trace. Canceling the context passed to `Get` stops the wait,
-not the work: to cancel the work, have the function watch a context of its own.
+not the work: to cancel the work, start it with `GoCtx` and have the function watch the
+context it is given.
+
+`AllSettled` waits for every future and returns each outcome as a `result.Result`,
+`Recover` and `OrElse` substitute a value for a failure, and `TryGet` and `IsDone` look
+without waiting. A `Promise` is a Future completed by hand, for callback-style code, and
+a `Pool` limits how many functions run at once:
+
+```go
+pool := future.NewPool(8)
+for _, url := range urls {
+	pages = append(pages, pool.Go(func() (Page, error) { return fetch(url) }))
+}
+results, err := future.All(ctx, pages...)
+```
 
 ## concurrent
 
@@ -274,6 +327,13 @@ hits.Merge(path, 1, func(a, b int) int { return a + b })
 so prefer `sync.Map` for read-mostly maps that need none of the compound updates.
 Functions passed to the Map run while it is locked and must not call back into it.
 
+`Map` also has `GetOrDefault`, `Replace`, `ComputeIfPresent`, `RemoveIf`, `Keys` and
+`Values`, and the functions `CompareAndSwap` and `CompareAndDelete` for comparable values.
+`ShardedMap` offers the same per-key operations over independently locked parts, which
+scales across cores at the price of whole-map operations no longer being atomic. `Set`
+is a concurrent set whose `Add` reports whether the value was new, so exactly one
+goroutine can claim it.
+
 ## deque
 
 ```go
@@ -285,8 +345,8 @@ next, ok := q.PopFront().Value() // FIFO; use PopBack for a stack
 ```
 
 A ring buffer with amortized constant-time `PushFront`, `PushBack`, `PopFront` and
-`PopBack`, plus `Front`, `Back`, `At`, `All` and `Backward`. The buffer grows and shrinks
-with its contents.
+`PopBack`, plus `Front`, `Back`, `At`, `Set`, `Rotate`, `All` and `Backward`. The buffer
+grows and shrinks with its contents, and it marshals to/from a JSON array.
 
 ## pq
 
@@ -299,7 +359,9 @@ next, ok := tasks.Pop().Value() // the earliest deadline
 ```
 
 A binary heap ordered by a comparator, so `cmp.Compare` gives a min-heap and
-`stream.Reversed` of it a max-heap. `Drain` iterates in priority order.
+`stream.Reversed` of it a max-heap; `pq.NewMin` and `pq.NewMax` are the shorthand for
+ordered types. `Drain` iterates in priority order, `PushPop` does a push and a pop in one
+pass, and `RemoveFunc` removes by predicate.
 
 ## sorted
 
@@ -314,7 +376,10 @@ for at, price := range prices.Range(start, end) { ... }
 
 `Map[K, V]` and `Set[T]` keep their contents in comparator order in an AVL tree. Besides
 lookups in logarithmic time they have `First`, `Last`, `PopFirst`, `PopLast`, `Floor`,
-`Ceiling`, `Lower`, `Higher`, `Range` and `Backward`.
+`Ceiling`, `Lower`, `Higher` and `Backward`. Ranges come half-open (`Range`), inclusive
+(`RangeClosed`), open-ended (`From`, `Until`) and descending (`BackwardFrom`,
+`BackwardRange`). `Rank` gives a key's position and `At` the entry at a position, both in
+logarithmic time, so `m.At(m.Len() / 2)` is the median.
 
 ## linked
 
@@ -334,12 +399,70 @@ if cache.Len() > limit {
 
 `Map[K, V]` and `Set[T]` are hash-based and iterate in insertion order. `MoveToBack`,
 `MoveToFront`, `PopFirst` and `PopLast` take constant time, which is what an LRU cache
-needs.
+needs. `linked.NewLRU` is that cache ready-made, with a capacity and an eviction
+callback. Both types marshal to and from JSON in order, which a built-in map cannot do.
 
 ## pair
 
 `pair.Pair[A, B]` holds two values. It is what `Zip`, `Enumerate` and `FromMap` produce,
 and `First`, `Last` and friends on the maps return. `p.Unpack()` gives both values back.
+
+## result and triple
+
+```go
+import "github.com/t1sk3/go-utils/types/result"
+
+r := result.Of(strconv.Atoi(s)) // a success or an error, as one value
+n := r.Map(double).OrElse(0)
+v, err := r.Get() // back to Go's two results
+```
+
+`Result[T]` is for the places that only have room for one value: a slice of outcomes, a
+channel, a stream. Ordinary functions should keep returning `(T, error)`.
+`triple.Triple[A, B, C]` is `Pair` with a third value.
+
+## multimap, bimap, ring and trie
+
+```go
+var byTag multimap.Multimap[string, Post] // any number of values per key
+byTag.Put("go", post1, post2)
+
+var codes bimap.BiMap[string, int] // one-to-one, looked up from either side
+codes.Put("NL", 31)
+country := codes.GetKey(31)
+
+recent := ring.New[string](100) // keeps the last 100, overwriting the oldest
+recent.Push(line)
+
+var routes trie.Trie[Handler] // string keys, searched by prefix
+routes.Put("/api/users/", usersHandler)
+match := routes.LongestPrefix("/api/users/42")
+for path := range routes.WithPrefix("/api/") { ... }
+```
+
+## retry and ratelimit
+
+```go
+import "github.com/t1sk3/go-utils/retry"
+
+page, err := retry.Do(ctx, retry.Policy{Attempts: 5, Delay: 100 * time.Millisecond, Multiplier: 2, Jitter: 0.2},
+	func(ctx context.Context) (Page, error) { return fetch(ctx, url) })
+```
+
+`Do` calls the function until it succeeds, the attempts run out or the context ends.
+Wrap an error in `retry.Permanent`, or set `Policy.RetryIf`, to give up at once on
+failures that will not pass.
+
+```go
+import "github.com/t1sk3/go-utils/ratelimit"
+
+limiter := ratelimit.New(10, 20) // 10 per second, bursts of up to 20
+if err := limiter.Wait(ctx); err != nil { return err }
+```
+
+`Limiter` is a token bucket that is safe for concurrent use. `Wait` blocks until an event
+may happen and serves waiting callers in order; `Allow` never waits, for dropping what is
+over the limit.
 
 ## Performance
 
