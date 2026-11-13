@@ -317,3 +317,16 @@ func BenchmarkPutGet(b *testing.B) {
 		i++
 	}
 }
+
+func TestPutReturnsPrevious(t *testing.T) {
+	m := NewMap[string, int]()
+	if old := m.Put("a", 1); old.IsPresent() {
+		t.Errorf("Put of a new key returned %v", old)
+	}
+	if old, ok := m.Put("a", 0).Value(); !ok || old != 1 {
+		t.Errorf("Put of an existing key returned %v, %v", old, ok)
+	}
+	if old, ok := m.Put("a", 2).Value(); !ok || old != 0 {
+		t.Errorf("Put over a zero value returned %v, %v", old, ok)
+	}
+}

@@ -2,7 +2,6 @@ package vector
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/t1sk3/go-utils/types/constraints"
 )
@@ -49,7 +48,9 @@ func (v Vec3[T]) DivScalar(s T) Vec3[T] { return Vec3[T]{v.X / s, v.Y / s, v.Z /
 // Neg returns -v. For unsigned T the components wrap around, as unary minus does.
 func (v Vec3[T]) Neg() Vec3[T] { return Vec3[T]{-v.X, -v.Y, -v.Z} }
 
-// Abs returns v with every component replaced by its absolute value.
+// Abs returns v with every component replaced by its absolute value. The smallest
+// value of a signed integer type has no positive counterpart and stays as it is, as
+// with unary minus.
 func (v Vec3[T]) Abs() Vec3[T] { return Vec3[T]{abs(v.X), abs(v.Y), abs(v.Z)} }
 
 // Min returns the component-wise minimum of v and o.
@@ -88,8 +89,7 @@ func (v Vec3[T]) LengthSquared() T { return v.Dot(v) }
 
 // Length returns the Euclidean length (magnitude) of v.
 func (v Vec3[T]) Length() float64 {
-	x, y, z := float64(v.X), float64(v.Y), float64(v.Z)
-	return math.Sqrt(x*x + y*y + z*z)
+	return hypot3(float64(v.X), float64(v.Y), float64(v.Z))
 }
 
 // DistanceSquared returns the squared Euclidean distance between v and o.
@@ -100,7 +100,7 @@ func (v Vec3[T]) Distance(o Vec3[T]) float64 {
 	x := float64(v.X) - float64(o.X)
 	y := float64(v.Y) - float64(o.Y)
 	z := float64(v.Z) - float64(o.Z)
-	return math.Sqrt(x*x + y*y + z*z)
+	return hypot3(x, y, z)
 }
 
 // Normalize returns the unit vector pointing in the same direction as v. The zero

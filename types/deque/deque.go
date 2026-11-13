@@ -1,8 +1,10 @@
 // Package deque provides Deque, a double-ended queue backed by a growable ring buffer.
 //
 // A Deque works as a FIFO queue (PushBack and PopFront) or a LIFO stack (PushBack and
-// PopBack). Adding or removing at either end takes amortized constant time. It is the
-// counterpart of Java's ArrayDeque.
+// PopBack). Adding or removing at either end takes amortized constant time. The buffer
+// doubles when it is full and halves when only a quarter of it is in use, so memory
+// follows the number of values in both directions. It is the counterpart of Java's
+// ArrayDeque.
 //
 // The zero value is an empty Deque ready to use. A Deque must not be copied after
 // first use, and it is not safe for concurrent use without external locking.
@@ -72,6 +74,7 @@ func (d *Deque[T]) PopFront() optional.Optional[T] {
 	d.buf[d.head] = zero // Let the garbage collector reclaim what v refers to.
 	d.head = d.index(1)
 	d.n--
+	d.shrink()
 	return optional.Of(v)
 }
 
@@ -86,6 +89,7 @@ func (d *Deque[T]) PopBack() optional.Optional[T] {
 	var zero T
 	d.buf[i] = zero // Let the garbage collector reclaim what v refers to.
 	d.n--
+	d.shrink()
 	return optional.Of(v)
 }
 
@@ -199,6 +203,22 @@ func (d *Deque[T]) reserve(extra int) {
 	for capacity < d.n+extra {
 		capacity *= 2
 	}
+	d.resize(capacity)
+}
+
+// shrink halves the buffer once only a quarter of it is in use, so a Deque that was
+// briefly large does not hold on to that memory. Shrinking at a quarter rather than a
+// half leaves room to grow again, which keeps alternating pushes and pops at the
+// boundary from resizing every time.
+func (d *Deque[T]) shrink() {
+	if len(d.buf) > minCapacity && d.n <= len(d.buf)/4 {
+		d.resize(len(d.buf) / 2)
+	}
+}
+
+// resize moves the values to the start of a new buffer of the given capacity, which
+// must be at least d.n.
+func (d *Deque[T]) resize(capacity int) {
 	buf := make([]T, capacity)
 	if d.n > 0 {
 		end := min(d.head+d.n, len(d.buf))

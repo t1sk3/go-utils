@@ -33,8 +33,11 @@ type PanicError struct {
 	Stack []byte
 }
 
+// Error describes the panic value. It leaves out the stack trace, because error
+// strings tend to end up in logs and responses where source paths do not belong; read
+// Stack to log it deliberately.
 func (e *PanicError) Error() string {
-	return fmt.Sprintf("future: function panicked: %v\n\n%s", e.Value, e.Stack)
+	return fmt.Sprintf("future: function panicked: %v", e.Value)
 }
 
 // Unwrap returns the panic value if it is an error, so errors.Is and errors.As see it.
@@ -132,8 +135,14 @@ func (f *Future[T]) Done() <-chan struct{} {
 
 // All waits for every future and returns their values in the order given. It returns
 // as soon as any future fails or ctx ends, with that error, and the other futures keep
-// running. With no futures, it returns an empty slice.
+// running. An outcome that is already available is returned even if ctx has ended.
+// With no futures, it returns an empty slice. All panics if a future is nil.
 func All[T any](ctx context.Context, futures ...*Future[T]) ([]T, error) {
+	checkFutures(futures, "All")
+	// Results that are already available win over a context that has ended, as in Get.
+	if values, err, ok := allReady(futures); ok {
+		return values, err
+	}
 	failed := make(chan error, 1)
 	finished := make(chan struct{})
 	defer close(finished)
@@ -168,21 +177,64 @@ func All[T any](ctx context.Context, futures ...*Future[T]) ([]T, error) {
 		return nil, err
 	default:
 	}
-	values := make([]T, len(futures))
+	values, err, _ := allReady(futures)
+	return values, err
+}
+
+// allReady returns the outcome of All without waiting, and false if some future that
+// matters is still running. A failed future settles the outcome whatever the others
+// are doing; the first one in argument order is reported.
+func allReady[T any](futures []*Future[T]) (values []T, err error, ok bool) {
+	pending := false
+	for _, fut := range futures {
+		select {
+		case <-fut.done:
+			if fut.err != nil {
+				return nil, fut.err, true
+			}
+		default:
+			pending = true
+		}
+	}
+	if pending {
+		return nil, nil, false
+	}
+	values = make([]T, len(futures))
 	for i, fut := range futures {
 		values[i] = fut.value
 	}
-	return values, nil
+	return values, nil, true
+}
+
+// checkFutures panics on the caller's goroutine for a nil Future. Without it, the nil
+// would be dereferenced on a goroutine the caller cannot guard, crashing the program.
+func checkFutures[T any](futures []*Future[T], op string) {
+	for i, fut := range futures {
+		if fut == nil {
+			panic(fmt.Sprintf("future: %s called with a nil Future at index %d", op, i))
+		}
+	}
 }
 
 // Any returns the value of the first future to succeed, and the other futures keep
 // running. If every future fails, it returns all their errors joined, in the order
-// given. If ctx ends first, it returns the context's error. With no futures, it returns
-// ErrNoFutures.
+// given. If ctx ends first, it returns the context's error, unless a value is already
+// available. With no futures, it returns ErrNoFutures. Any panics if a future is nil.
 func Any[T any](ctx context.Context, futures ...*Future[T]) (T, error) {
 	var zero T
 	if len(futures) == 0 {
 		return zero, ErrNoFutures
+	}
+	checkFutures(futures, "Any")
+	// A value that is already available wins over a context that has ended, as in Get.
+	for _, fut := range futures {
+		select {
+		case <-fut.done:
+			if fut.err == nil {
+				return fut.value, nil
+			}
+		default:
+		}
 	}
 	finished := make(chan struct{})
 	defer close(finished)

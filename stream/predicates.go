@@ -2,6 +2,7 @@ package stream
 
 import (
 	"cmp"
+	"slices"
 
 	"github.com/t1sk3/go-utils/types/constraints"
 	"github.com/t1sk3/go-utils/types/set"
@@ -84,7 +85,9 @@ func Between[T cmp.Ordered](low, high T) func(T) bool {
 	return func(v T) bool { return v >= low && v <= high }
 }
 
-// In returns a predicate that reports whether its argument is one of values.
+// In returns a predicate that reports whether its argument is one of values. As with
+// a map key, NaN is never found, and the predicate panics for an interface value that
+// holds something unhashable, such as a slice.
 func In[T comparable](values ...T) func(T) bool {
 	allowed := set.Of(values...)
 	return allowed.Has
@@ -100,6 +103,7 @@ func Not[T any](predicate func(T) bool) func(T) bool {
 // And returns a predicate that reports whether every one of predicates holds. It
 // stops at the first that does not. With no predicates it always reports true.
 func And[T any](predicates ...func(T) bool) func(T) bool {
+	predicates = slices.Clone(predicates)
 	for _, p := range predicates {
 		checkFunc(p == nil, "And")
 	}
@@ -116,6 +120,7 @@ func And[T any](predicates ...func(T) bool) func(T) bool {
 // Or returns a predicate that reports whether any one of predicates holds. It stops
 // at the first that does. With no predicates it always reports false.
 func Or[T any](predicates ...func(T) bool) func(T) bool {
+	predicates = slices.Clone(predicates)
 	for _, p := range predicates {
 		checkFunc(p == nil, "Or")
 	}

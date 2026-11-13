@@ -18,6 +18,9 @@ import (
 // Map is a map that is safe for concurrent use. The zero value is empty and ready to
 // use. A Map must not be copied after first use.
 //
+// If K is an interface type, a key holding something unhashable, such as a slice,
+// makes the method panic, as it does for a built-in map. The Map stays usable.
+//
 // Functions passed to ComputeIfAbsent, Compute and Merge run while the Map is locked.
 // They must be short and must not call methods of the same Map, which would deadlock.
 type Map[K comparable, V any] struct {
@@ -76,10 +79,7 @@ func (m *Map[K, V]) Remove(key K) optional.Optional[V] {
 // goroutines ask at the same time. See Map for what f may do.
 func (m *Map[K, V]) ComputeIfAbsent(key K, f func(K) V) V {
 	// The common case needs only the read lock.
-	m.mu.RLock()
-	v, ok := m.m[key]
-	m.mu.RUnlock()
-	if ok {
+	if v, ok := m.load(key); ok {
 		return v
 	}
 	m.mu.Lock()
@@ -87,7 +87,7 @@ func (m *Map[K, V]) ComputeIfAbsent(key K, f func(K) V) V {
 	if v, ok := m.m[key]; ok {
 		return v
 	}
-	v = f(key)
+	v := f(key)
 	m.set(key, v)
 	return v
 }
@@ -155,6 +155,15 @@ func (m *Map[K, V]) All() iter.Seq2[K, V] {
 			}
 		}
 	}
+}
+
+// load looks key up under the read lock. The lock is released with defer because the
+// lookup itself panics when K is an interface type and key holds an unhashable value.
+func (m *Map[K, V]) load(key K) (V, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	v, ok := m.m[key]
+	return v, ok
 }
 
 // set stores an entry. The write lock must be held.

@@ -52,9 +52,12 @@ func NewOrderedMap[K cmp.Ordered, V any]() *Map[K, V] {
 	return NewMap[K, V](cmp.Compare[K])
 }
 
-// Put sets the value for key, replacing any existing value.
-func (m *Map[K, V]) Put(key K, value V) {
-	m.root = m.insert(m.root, key, value)
+// Put sets the value for key and returns the previous value, if there was one. The
+// stored key is kept when key compares equal to it.
+func (m *Map[K, V]) Put(key K, value V) optional.Optional[V] {
+	var replaced optional.Optional[V]
+	m.root = m.insert(m.root, key, value, &replaced)
+	return replaced
 }
 
 // Get returns the value for key, or an empty Optional if key is not present.
@@ -276,7 +279,7 @@ func (m *Map[K, V]) find(key K) *node[K, V] {
 	return nil
 }
 
-func (m *Map[K, V]) insert(n *node[K, V], key K, value V) *node[K, V] {
+func (m *Map[K, V]) insert(n *node[K, V], key K, value V, replaced *optional.Optional[V]) *node[K, V] {
 	if n == nil {
 		m.size++
 		return &node[K, V]{key: key, value: value, height: 1}
@@ -284,10 +287,11 @@ func (m *Map[K, V]) insert(n *node[K, V], key K, value V) *node[K, V] {
 	c := m.compare(key, n.key)
 	switch {
 	case c < 0:
-		n.left = m.insert(n.left, key, value)
+		n.left = m.insert(n.left, key, value, replaced)
 	case c > 0:
-		n.right = m.insert(n.right, key, value)
+		n.right = m.insert(n.right, key, value, replaced)
 	default:
+		*replaced = optional.Of(n.value)
 		n.value = value
 		return n
 	}

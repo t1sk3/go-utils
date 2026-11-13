@@ -45,7 +45,7 @@ func (s Stream[T]) FlatMap[R any](mapper func(T) Stream[R]) Stream[R] {
 func (s Stream[T]) DistinctBy[K comparable](key func(T) K) Stream[T] {
 	checkFunc(key == nil, "DistinctBy")
 	src := s.All()
-	hint := max(s.size, 0)
+	hint := sizeHint(s.size)
 	return Stream[T]{size: -1, seq: func(yield func(T) bool) {
 		seen := make(map[K]struct{}, hint)
 		for v := range src {
@@ -122,7 +122,7 @@ func (s Stream[T]) CountBy[K comparable](key func(T) K) map[K]int {
 //	lengths := words.ToMap(stream.Identity, func(w string) int { return len(w) })
 func (s Stream[T]) ToMap[K comparable, V any](key func(T) K, value func(T) V) map[K]V {
 	checkFunc(key == nil || value == nil, "ToMap")
-	m := make(map[K]V, max(s.size, 0))
+	m := make(map[K]V, sizeHint(s.size))
 	for v := range s.All() {
 		m[key(v)] = value(v)
 	}
@@ -136,7 +136,7 @@ func (s Stream[T]) ToMap[K comparable, V any](key func(T) K, value func(T) V) ma
 //		func(a, b int) int { return a + b })
 func (s Stream[T]) ToMapMerge[K comparable, V any](key func(T) K, value func(T) V, merge func(existing, next V) V) map[K]V {
 	checkFunc(key == nil || value == nil || merge == nil, "ToMapMerge")
-	m := make(map[K]V, max(s.size, 0))
+	m := make(map[K]V, sizeHint(s.size))
 	for v := range s.All() {
 		k, val := key(v), value(v)
 		if existing, ok := m[k]; ok {
@@ -192,6 +192,11 @@ func (s Stream[T]) Enumerate[P pair.Pair[int, T]]() Stream[P] {
 // When b comes straight from FromSlice or Of, Zip indexes it directly; otherwise it
 // has to step b with iter.Pull, which is roughly ten times slower per element. If
 // only one side is a plain slice, pass it as b.
+//
+// Zip reads an element of s before the matching element of b. When b is not a plain
+// slice and ends first, one element of s has therefore been read and is dropped, which
+// matters only if reading s has side effects. A pair needs both elements, so one side
+// always has to be read without knowing whether the other has one left.
 func (s Stream[T]) Zip[B any, P pair.Pair[T, B]](b Stream[B]) Stream[P] {
 	size := -1
 	if s.size >= 0 && b.size >= 0 {
@@ -285,8 +290,11 @@ func (s Stream[T]) Window[S []T](n int) Stream[S] {
 	src := s.All()
 	capacity := capFor(n, s.size)
 	return Stream[S]{size: size, seq: func(yield func(S) bool) {
-		buf := make([]T, 0, capacity)
+		var buf []T
 		for v := range src {
+			if buf == nil {
+				buf = make([]T, 0, capacity)
+			}
 			if len(buf) == n {
 				copy(buf, buf[1:])
 				buf = buf[:n-1]
@@ -299,11 +307,23 @@ func (s Stream[T]) Window[S []T](n int) Stream[S] {
 	}}
 }
 
-// capFor returns the capacity to allocate for a buffer of up to n elements drawn
-// from a stream of the given size, which may be -1 if unknown.
+// maxPrealloc is the most elements a buffer is sized for before any have arrived. The
+// stream's size and the caller's n say how many elements may come, not how many will:
+// a later Limit can stop after three, distinct keys can be few, and n can be far larger
+// than the stream. Buffers start no bigger than this and grow as elements arrive.
+const maxPrealloc = 1024
+
+// sizeHint returns the capacity to allocate up front for a collection that receives at
+// most one entry per element of a stream of the given size, which may be -1 if unknown.
+func sizeHint(size int) int {
+	return min(max(size, 0), maxPrealloc)
+}
+
+// capFor returns the capacity to allocate up front for a buffer of up to n elements
+// drawn from a stream of the given size, which may be -1 if unknown.
 func capFor(n, size int) int {
 	if size >= 0 {
-		return min(n, size)
+		n = min(n, size)
 	}
-	return n
+	return min(n, maxPrealloc)
 }

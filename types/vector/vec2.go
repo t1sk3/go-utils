@@ -55,7 +55,9 @@ func (v Vec2[T]) DivScalar(s T) Vec2[T] { return Vec2[T]{v.X / s, v.Y / s} }
 // Neg returns -v. For unsigned T the components wrap around, as unary minus does.
 func (v Vec2[T]) Neg() Vec2[T] { return Vec2[T]{-v.X, -v.Y} }
 
-// Abs returns v with every component replaced by its absolute value.
+// Abs returns v with every component replaced by its absolute value. The smallest
+// value of a signed integer type has no positive counterpart and stays as it is, as
+// with unary minus.
 func (v Vec2[T]) Abs() Vec2[T] { return Vec2[T]{abs(v.X), abs(v.Y)} }
 
 // Min returns the component-wise minimum of v and o.

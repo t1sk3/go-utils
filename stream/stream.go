@@ -186,6 +186,7 @@ func Generate[T any](supplier func() T) Stream[T] {
 
 // Concat returns a Stream of the elements of each stream in turn.
 func Concat[T any](streams ...Stream[T]) Stream[T] {
+	streams = slices.Clone(streams)
 	size := 0
 	for _, s := range streams {
 		if s.size < 0 || size > math.MaxInt-s.size {
