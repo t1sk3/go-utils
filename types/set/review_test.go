@@ -3,6 +3,7 @@ package set
 import (
 	"encoding/json"
 	"math"
+	"slices"
 	"testing"
 )
 
@@ -61,4 +62,43 @@ func TestUnhashableValuePanics(t *testing.T) {
 	}()
 	var s Set[any]
 	s.Add([]int{1})
+}
+
+func TestAddSeqPopHasToSlice(t *testing.T) {
+	var s Set[int]
+	if got := s.AddSeq(slices.Values([]int{1, 2, 2, 3})); got != 3 || s.Len() != 3 {
+		t.Errorf("AddSeq added %d, leaving %d", got, s.Len())
+	}
+	if got := s.AddSeq(slices.Values([]int{3, 4})); got != 1 {
+		t.Errorf("AddSeq with one new value added %d", got)
+	}
+	if !s.HasAll(1, 4) || s.HasAll(1, 9) || !s.HasAll() || !s.HasAny(9, 2) || s.HasAny(8, 9) || s.HasAny() {
+		t.Errorf("HasAll or HasAny is wrong for %v", s)
+	}
+	if got := s.ToSlice(); !slices.Equal(slices.Sorted(slices.Values(got)), []int{1, 2, 3, 4}) {
+		t.Errorf("ToSlice() = %v", got)
+	}
+	if got := (Set[int]{}).ToSlice(); got == nil || len(got) != 0 {
+		t.Errorf("ToSlice() of an empty Set = %#v", got)
+	}
+
+	var popped []int
+	for v, ok := s.Pop().Value(); ok; v, ok = s.Pop().Value() {
+		popped = append(popped, v)
+	}
+	slices.Sort(popped)
+	if !slices.Equal(popped, []int{1, 2, 3, 4}) || !s.IsEmpty() {
+		t.Errorf("Pop() until empty gave %v, leaving %v", popped, s)
+	}
+	var empty Set[int]
+	if empty.Pop().IsPresent() {
+		t.Errorf("Pop() of the zero value returned a value")
+	}
+
+	nan := Of(math.NaN(), math.NaN())
+	for i := 0; !nan.IsEmpty(); i++ {
+		if v := nan.Pop().OrElse(0); !math.IsNaN(v) || i > 2 {
+			t.Fatalf("Pop() of NaN = %v on call %d", v, i)
+		}
+	}
 }

@@ -3,6 +3,7 @@ package sorted
 import (
 	"cmp"
 	"fmt"
+	"iter"
 	"maps"
 	"math/rand/v2"
 	"slices"
@@ -32,6 +33,9 @@ func checkInvariants[V any](t *testing.T, m *Map[int, V]) {
 		}
 		if h := max(l, r) + 1; n.height != h {
 			t.Fatalf("node %d has height %d, want %d", n.key, n.height, h)
+		}
+		if c := n.left.countOf() + n.right.countOf() + 1; n.count != c {
+			t.Fatalf("node %d has count %d, want %d", n.key, n.count, c)
 		}
 		return n.height
 	}
@@ -371,5 +375,126 @@ func TestPutReturnsPrevious(t *testing.T) {
 	}
 	if m.Len() != 50 {
 		t.Errorf("Len() = %d after replacing values", m.Len())
+	}
+}
+
+func TestBoundedRanges(t *testing.T) {
+	m := NewOrderedMap[int, string]()
+	s := NewOrderedSet[int]()
+	for i := 10; i <= 90; i += 10 {
+		m.Put(i, "")
+		s.Add(i)
+	}
+	all := []int{10, 20, 30, 40, 50, 60, 70, 80, 90}
+	down := func(lo, hi int) []int { // the keys in [lo, hi], descending
+		var out []int
+		for i := len(all) - 1; i >= 0; i-- {
+			if all[i] >= lo && all[i] <= hi {
+				out = append(out, all[i])
+			}
+		}
+		return out
+	}
+	up := func(lo, hi int) []int {
+		out := down(lo, hi)
+		slices.Reverse(out)
+		return out
+	}
+	mapKeys := func(seq iter.Seq2[int, string]) []int {
+		var out []int
+		for k := range seq {
+			out = append(out, k)
+		}
+		return out
+	}
+	for _, from := range []int{0, 10, 35, 50, 90, 95} {
+		for _, to := range []int{0, 10, 35, 50, 90, 95} {
+			tests := []struct {
+				name     string
+				got, set []int
+				want     []int
+			}{
+				{"RangeClosed", mapKeys(m.RangeClosed(from, to)), slices.Collect(s.RangeClosed(from, to)), up(from, to)},
+				{"Range", mapKeys(m.Range(from, to)), slices.Collect(s.Range(from, to)), up(from, to-1)},
+				{"BackwardRange", mapKeys(m.BackwardRange(from, to)), slices.Collect(s.BackwardRange(from, to)), down(to+1, from)},
+			}
+			for _, tt := range tests {
+				if !slices.Equal(tt.got, tt.want) || !slices.Equal(tt.set, tt.want) {
+					t.Errorf("%s(%d, %d) = %v (Map), %v (Set), want %v", tt.name, from, to, tt.got, tt.set, tt.want)
+				}
+			}
+		}
+		for name, tt := range map[string]struct{ got, set, want []int }{
+			"From":         {mapKeys(m.From(from)), slices.Collect(s.From(from)), up(from, 100)},
+			"Until":        {mapKeys(m.Until(from)), slices.Collect(s.Until(from)), up(0, from-1)},
+			"BackwardFrom": {mapKeys(m.BackwardFrom(from)), slices.Collect(s.BackwardFrom(from)), down(0, from)},
+		} {
+			if !slices.Equal(tt.got, tt.want) || !slices.Equal(tt.set, tt.want) {
+				t.Errorf("%s(%d) = %v (Map), %v (Set), want %v", name, from, tt.got, tt.set, tt.want)
+			}
+		}
+	}
+	// Stopping early at every position, in both directions.
+	for stop := range len(all) {
+		n := 0
+		for range m.From(0) {
+			if n++; n > stop {
+				break
+			}
+		}
+		for range s.BackwardFrom(100) {
+			if n++; n > 2*stop+1 {
+				break
+			}
+		}
+		if n != 2*stop+2 {
+			t.Errorf("stopping after %d entries visited %d", stop+1, n)
+		}
+	}
+}
+
+func TestRankAndAt(t *testing.T) {
+	m := NewOrderedMap[int, int]()
+	s := NewOrderedSet[int]()
+	rng := rand.New(rand.NewPCG(1, 2))
+	present := map[int]bool{}
+	for range 400 {
+		k := rng.IntN(200) * 2 // even keys, so that odd probes fall between them
+		if rng.IntN(3) == 0 {
+			m.Remove(k)
+			s.Remove(k)
+			delete(present, k)
+		} else {
+			m.Put(k, k)
+			s.Add(k)
+			present[k] = true
+		}
+	}
+	checkInvariants(t, m)
+	keys := slices.Sorted(maps.Keys(present))
+	for i, k := range keys {
+		if e, ok := m.At(i).Value(); !ok || e.First != k {
+			t.Fatalf("At(%d) = %v, %v, want %d", i, e, ok, k)
+		}
+		if v, ok := s.At(i).Value(); !ok || v != k {
+			t.Fatalf("Set.At(%d) = %v, %v, want %d", i, v, ok, k)
+		}
+		if m.Rank(k) != i || s.Rank(k) != i || m.Rank(k+1) != i+1 || m.Rank(k-1) != i {
+			t.Fatalf("Rank around key %d at position %d = %d, %d, %d", k, i, m.Rank(k-1), m.Rank(k), m.Rank(k+1))
+		}
+	}
+	if m.At(-1).IsPresent() || m.At(len(keys)).IsPresent() || s.At(len(keys)).IsPresent() {
+		t.Errorf("At outside the range returned an entry")
+	}
+	if m.Rank(-5) != 0 || m.Rank(1000) != len(keys) {
+		t.Errorf("Rank outside the keys = %d, %d", m.Rank(-5), m.Rank(1000))
+	}
+	empty := NewOrderedMap[int, int]()
+	if empty.Rank(1) != 0 || empty.At(0).IsPresent() {
+		t.Errorf("Rank or At of an empty Map is wrong")
+	}
+	c := m.Clone()
+	if e, ok := c.At(len(keys) / 2).Value(); !ok || e.First != keys[len(keys)/2] {
+		t.Errorf("At on a clone = %v, %v", e, ok)
 	}
 }

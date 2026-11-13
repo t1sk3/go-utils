@@ -159,3 +159,63 @@ func TestString(t *testing.T) {
 		t.Errorf("String() of an empty Queue = %q", got)
 	}
 }
+
+func TestNewMinMaxCollect(t *testing.T) {
+	if got := slices.Collect(NewMin(3, 1, 2).Drain()); !slices.Equal(got, []int{1, 2, 3}) {
+		t.Errorf("NewMin drains as %v", got)
+	}
+	if got := slices.Collect(NewMax("b", "c", "a").Drain()); !slices.Equal(got, []string{"c", "b", "a"}) {
+		t.Errorf("NewMax drains as %v", got)
+	}
+	src := []int{5, 1, 4}
+	q := Collect(cmp.Compare[int], slices.Values(src))
+	if got := slices.Collect(q.Drain()); !slices.Equal(got, []int{1, 4, 5}) || !slices.Equal(src, []int{5, 1, 4}) {
+		t.Errorf("Collect drains as %v, source now %v", got, src)
+	}
+}
+
+func TestPushPop(t *testing.T) {
+	q := NewMin[int]()
+	if got := q.PushPop(5); got != 5 || q.Len() != 0 {
+		t.Errorf("PushPop on an empty Queue = %d, leaving %d", got, q.Len())
+	}
+	q.Push(3, 7, 9)
+	if got := q.PushPop(1); got != 1 || q.Len() != 3 {
+		t.Errorf("PushPop of the smallest value = %d", got)
+	}
+	if got := q.PushPop(3); got != 3 || q.Len() != 3 {
+		t.Errorf("PushPop of a value equal to the first = %d", got)
+	}
+	if got := q.PushPop(8); got != 3 {
+		t.Errorf("PushPop(8) = %d, want 3", got)
+	}
+	if got := slices.Collect(q.Drain()); !slices.Equal(got, []int{7, 8, 9}) {
+		t.Errorf("after PushPop the Queue drains as %v", got)
+	}
+
+	// The three largest of a sequence, kept in a min-heap of three.
+	top := NewMin[int]()
+	for _, v := range []int{4, 9, 1, 7, 3, 8, 2} {
+		if top.Len() < 3 {
+			top.Push(v)
+		} else {
+			top.PushPop(v)
+		}
+	}
+	if got := slices.Collect(top.Drain()); !slices.Equal(got, []int{7, 8, 9}) {
+		t.Errorf("top three = %v", got)
+	}
+}
+
+func TestRemoveFunc(t *testing.T) {
+	q := NewMin(5, 2, 8, 1, 9, 4, 7, 3, 6)
+	if got := q.RemoveFunc(func(v int) bool { return v%2 == 0 }); got != 4 {
+		t.Errorf("RemoveFunc removed %d", got)
+	}
+	if got := q.RemoveFunc(func(v int) bool { return v > 100 }); got != 0 || q.Len() != 5 {
+		t.Errorf("RemoveFunc with no match removed %d", got)
+	}
+	if got := slices.Collect(q.Drain()); !slices.Equal(got, []int{1, 3, 5, 7, 9}) {
+		t.Errorf("after RemoveFunc the Queue drains as %v", got)
+	}
+}

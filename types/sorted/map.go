@@ -36,7 +36,10 @@ type node[K, V any] struct {
 	key         K
 	value       V
 	left, right *node[K, V]
-	height      int8
+	// count is the number of nodes in the subtree rooted here, which is what lets Rank
+	// and At skip whole subtrees.
+	count  int
+	height int8
 }
 
 // NewMap returns an empty Map ordered by compare. It panics if compare is nil.
@@ -243,8 +246,89 @@ func (m *Map[K, V]) Values() iter.Seq[V] {
 // be modified during iteration.
 func (m *Map[K, V]) Range(from, to K) iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
-		m.ascendRange(m.root, from, to, yield)
+		m.ascendRange(m.root, &bound[K]{from, true}, &bound[K]{to, false}, yield)
 	}
+}
+
+// RangeClosed returns an iterator over the entries with keys from from to to, both
+// inclusive, in ascending order. It is empty if from is greater than to. m must not be
+// modified during iteration.
+func (m *Map[K, V]) RangeClosed(from, to K) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		m.ascendRange(m.root, &bound[K]{from, true}, &bound[K]{to, true}, yield)
+	}
+}
+
+// From returns an iterator over the entries with keys greater than or equal to from, in
+// ascending order. m must not be modified during iteration.
+func (m *Map[K, V]) From(from K) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		m.ascendRange(m.root, &bound[K]{from, true}, nil, yield)
+	}
+}
+
+// Until returns an iterator over the entries with keys less than to, in ascending
+// order. m must not be modified during iteration.
+func (m *Map[K, V]) Until(to K) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		m.ascendRange(m.root, nil, &bound[K]{to, false}, yield)
+	}
+}
+
+// BackwardFrom returns an iterator over the entries with keys less than or equal to
+// from, in descending order: from itself if present, then each smaller key. m must not
+// be modified during iteration.
+func (m *Map[K, V]) BackwardFrom(from K) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		m.descendRange(m.root, nil, &bound[K]{from, true}, yield)
+	}
+}
+
+// BackwardRange returns an iterator over the entries with keys from from (inclusive)
+// down to to (exclusive), in descending order. It is empty if from is not greater than
+// to. m must not be modified during iteration.
+func (m *Map[K, V]) BackwardRange(from, to K) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		m.descendRange(m.root, &bound[K]{to, false}, &bound[K]{from, true}, yield)
+	}
+}
+
+// Rank returns the number of keys less than key, which is the position key has, or
+// would have, in ascending order. It takes logarithmic time.
+func (m *Map[K, V]) Rank(key K) int {
+	rank := 0
+	for n := m.root; n != nil; {
+		if m.compare(key, n.key) <= 0 {
+			n = n.left
+		} else {
+			rank += n.left.countOf() + 1
+			n = n.right
+		}
+	}
+	return rank
+}
+
+// At returns the entry at position i in ascending key order, starting at 0, or an empty
+// Optional if i is out of range. It takes logarithmic time, so the median is
+// m.At(m.Len() / 2).
+func (m *Map[K, V]) At(i int) optional.Optional[pair.Pair[K, V]] {
+	if i < 0 {
+		return optional.Empty[pair.Pair[K, V]]()
+	}
+	n := m.root
+	for n != nil {
+		left := n.left.countOf()
+		switch {
+		case i < left:
+			n = n.left
+		case i == left:
+			return n.entry()
+		default:
+			i -= left + 1
+			n = n.right
+		}
+	}
+	return n.entry()
 }
 
 // String formats the entries in key order, for example "Map[a:1 b:2]".
@@ -282,7 +366,7 @@ func (m *Map[K, V]) find(key K) *node[K, V] {
 func (m *Map[K, V]) insert(n *node[K, V], key K, value V, replaced *optional.Optional[V]) *node[K, V] {
 	if n == nil {
 		m.size++
-		return &node[K, V]{key: key, value: value, height: 1}
+		return &node[K, V]{key: key, value: value, height: 1, count: 1}
 	}
 	c := m.compare(key, n.key)
 	switch {
@@ -326,20 +410,63 @@ func (m *Map[K, V]) remove(n *node[K, V], key K, removed *optional.Optional[V]) 
 	return n.rebalance()
 }
 
-func (m *Map[K, V]) ascendRange(n *node[K, V], from, to K, yield func(K, V) bool) bool {
+// bound is one end of a range of keys. A nil *bound means that end is open.
+type bound[K any] struct {
+	key       K
+	inclusive bool
+}
+
+// above reports whether key lies on the upper side of the lower bound b.
+func (m *Map[K, V]) above(b *bound[K], key K) bool {
+	if b == nil {
+		return true
+	}
+	c := m.compare(key, b.key)
+	return c > 0 || (c == 0 && b.inclusive)
+}
+
+// below reports whether key lies on the lower side of the upper bound b.
+func (m *Map[K, V]) below(b *bound[K], key K) bool {
+	if b == nil {
+		return true
+	}
+	c := m.compare(key, b.key)
+	return c < 0 || (c == 0 && b.inclusive)
+}
+
+// ascendRange yields the entries under n between low and high in ascending order. It
+// only descends into subtrees that can hold keys in the range.
+func (m *Map[K, V]) ascendRange(n *node[K, V], low, high *bound[K], yield func(K, V) bool) bool {
 	if n == nil {
 		return true
 	}
-	afterFrom := m.compare(n.key, from) >= 0
-	beforeTo := m.compare(n.key, to) < 0
-	if afterFrom && !m.ascendRange(n.left, from, to, yield) {
+	above, below := m.above(low, n.key), m.below(high, n.key)
+	if above && !m.ascendRange(n.left, low, high, yield) {
 		return false
 	}
-	if afterFrom && beforeTo && !yield(n.key, n.value) {
+	if above && below && !yield(n.key, n.value) {
 		return false
 	}
-	if beforeTo {
-		return m.ascendRange(n.right, from, to, yield)
+	if below {
+		return m.ascendRange(n.right, low, high, yield)
+	}
+	return true
+}
+
+// descendRange is ascendRange in descending order.
+func (m *Map[K, V]) descendRange(n *node[K, V], low, high *bound[K], yield func(K, V) bool) bool {
+	if n == nil {
+		return true
+	}
+	above, below := m.above(low, n.key), m.below(high, n.key)
+	if below && !m.descendRange(n.right, low, high, yield) {
+		return false
+	}
+	if above && below && !yield(n.key, n.value) {
+		return false
+	}
+	if above {
+		return m.descendRange(n.left, low, high, yield)
 	}
 	return true
 }
@@ -397,8 +524,17 @@ func (n *node[K, V]) heightOf() int8 {
 	return n.height
 }
 
+func (n *node[K, V]) countOf() int {
+	if n == nil {
+		return 0
+	}
+	return n.count
+}
+
+// updateHeight recomputes the height and count of n from its children.
 func (n *node[K, V]) updateHeight() {
 	n.height = max(n.left.heightOf(), n.right.heightOf()) + 1
+	n.count = n.left.countOf() + n.right.countOf() + 1
 }
 
 func (n *node[K, V]) rotateRight() *node[K, V] {

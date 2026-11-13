@@ -11,6 +11,7 @@
 package deque
 
 import (
+	"encoding/json"
 	"fmt"
 	"iter"
 	"strings"
@@ -119,6 +120,53 @@ func (d *Deque[T]) At(i int) T {
 	return d.buf[d.index(i)]
 }
 
+// Set replaces the value i positions from the front. It panics if i is out of range.
+func (d *Deque[T]) Set(i int, v T) {
+	if i < 0 || i >= d.n {
+		panic(fmt.Sprintf("deque: index %d out of range with length %d", i, d.n))
+	}
+	d.buf[d.index(i)] = v
+}
+
+// Rotate moves the first n values to the back, one at a time, so the value at position
+// n becomes the front. A negative n moves the last -n values to the front instead. n
+// may exceed the length, in which case it wraps around. Rotating by one in either
+// direction takes constant time.
+func (d *Deque[T]) Rotate(n int) {
+	if d.n < 2 {
+		return
+	}
+	n %= d.n
+	if n < 0 {
+		n += d.n
+	}
+	if n == 0 {
+		return
+	}
+	if d.n == len(d.buf) {
+		// A full buffer has no gap, so the front can simply move.
+		d.head = d.index(n)
+		return
+	}
+	// Move whichever end is shorter across the gap.
+	var zero T
+	if n <= d.n-n {
+		for range n {
+			back := d.index(d.n)
+			d.buf[back] = d.buf[d.head]
+			d.buf[d.head] = zero
+			d.head = d.index(1)
+		}
+	} else {
+		for range d.n - n {
+			back := d.index(d.n - 1)
+			d.head = d.index(len(d.buf) - 1)
+			d.buf[d.head] = d.buf[back]
+			d.buf[back] = zero
+		}
+	}
+}
+
 // Len returns the number of values in d.
 func (d *Deque[T]) Len() int {
 	return d.n
@@ -181,6 +229,27 @@ func (d *Deque[T]) String() string {
 	}
 	b.WriteByte(']')
 	return b.String()
+}
+
+// MarshalJSON encodes d as a JSON array, from front to back.
+func (d *Deque[T]) MarshalJSON() ([]byte, error) {
+	values := make([]T, 0, d.n)
+	for i := range d.n {
+		values = append(values, d.buf[d.index(i)])
+	}
+	return json.Marshal(values)
+}
+
+// UnmarshalJSON decodes a JSON array into d, replacing its contents. The first element
+// becomes the front.
+func (d *Deque[T]) UnmarshalJSON(data []byte) error {
+	var values []T
+	if err := json.Unmarshal(data, &values); err != nil {
+		return err
+	}
+	*d = Deque[T]{}
+	d.PushBack(values...)
+	return nil
 }
 
 // index returns the buffer position i places after the front, wrapping around. It

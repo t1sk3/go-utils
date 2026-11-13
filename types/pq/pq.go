@@ -16,6 +16,7 @@
 package pq
 
 import (
+	"cmp"
 	"fmt"
 	"iter"
 	"slices"
@@ -41,6 +42,54 @@ func New[T any](compare func(a, b T) int, values ...T) *Queue[T] {
 		q.siftDown(i)
 	}
 	return q
+}
+
+// NewMin returns a Queue that pops the smallest value first.
+func NewMin[T cmp.Ordered](values ...T) *Queue[T] {
+	return New(cmp.Compare[T], values...)
+}
+
+// NewMax returns a Queue that pops the largest value first.
+func NewMax[T cmp.Ordered](values ...T) *Queue[T] {
+	return New(func(a, b T) int { return cmp.Compare(b, a) }, values...)
+}
+
+// Collect returns a Queue ordered by compare and holding the values of seq. It panics
+// if compare is nil.
+func Collect[T any](compare func(a, b T) int, seq iter.Seq[T]) *Queue[T] {
+	return New(compare, slices.Collect(seq)...)
+}
+
+// PushPop adds v and then removes and returns the first element, which is v itself if
+// nothing in the Queue orders before it. It does the work of a Push and a Pop in one
+// pass, which is what keeping the n best of a long sequence needs:
+//
+//	if top.Len() < n {
+//		top.Push(v)
+//	} else {
+//		top.PushPop(v) // drops the worst of the n+1
+//	}
+func (q *Queue[T]) PushPop(v T) T {
+	if len(q.items) == 0 || q.compare(v, q.items[0]) <= 0 {
+		return v
+	}
+	top := q.items[0]
+	q.items[0] = v
+	q.siftDown(0)
+	return top
+}
+
+// RemoveFunc removes the elements that satisfy predicate and returns how many it
+// removed. It takes linear time, whatever the number removed.
+func (q *Queue[T]) RemoveFunc(predicate func(T) bool) int {
+	before := len(q.items)
+	q.items = slices.DeleteFunc(q.items, predicate)
+	if len(q.items) != before {
+		for i := len(q.items)/2 - 1; i >= 0; i-- {
+			q.siftDown(i)
+		}
+	}
+	return before - len(q.items)
 }
 
 // Push adds the given values.
