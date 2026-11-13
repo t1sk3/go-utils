@@ -25,13 +25,19 @@ type ShardedMap[K comparable, V any] struct {
 	shards []Map[K, V]
 }
 
+// maxShards is the most shards a ShardedMap is given.
+const maxShards = 1 << 16
+
 // NewShardedMap returns an empty ShardedMap with the given number of shards, rounded up
-// to a power of two. Zero or less picks a number suited to the machine, several times
-// its core count.
+// to a power of two and limited to 65536. Zero or less picks a number suited to the
+// machine, several times its core count.
 func NewShardedMap[K comparable, V any](shards int) *ShardedMap[K, V] {
 	if shards <= 0 {
 		shards = runtime.GOMAXPROCS(0) * 4
 	}
+	// More shards than this only cost memory, and rounding a huge number up to a power
+	// of two would overflow.
+	shards = min(shards, maxShards)
 	n := 1
 	for n < shards {
 		n <<= 1

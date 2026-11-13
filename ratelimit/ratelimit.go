@@ -78,10 +78,16 @@ func (l *Limiter) Wait(ctx context.Context) error {
 	l.tokens--
 	var wait time.Duration
 	if l.tokens < 0 {
-		wait = time.Duration(-l.tokens / l.rate * float64(time.Second))
+		// A wait too long for a Duration is clamped, because converting it directly
+		// would give an unspecified result, possibly no wait at all.
+		if nanos := -l.tokens / l.rate * float64(time.Second); nanos >= float64(math.MaxInt64) {
+			wait = math.MaxInt64
+		} else {
+			wait = time.Duration(nanos)
+		}
 	}
 	if deadline, ok := ctx.Deadline(); ok && l.now().Add(wait).After(deadline) {
-		l.tokens++
+		l.giveBack()
 		l.mu.Unlock()
 		return context.DeadlineExceeded
 	}
@@ -91,7 +97,7 @@ func (l *Limiter) Wait(ctx context.Context) error {
 	}
 	if err := l.sleep(ctx, wait); err != nil {
 		l.mu.Lock()
-		l.tokens++ // Hand the token back so those queued behind are not held up by it.
+		l.giveBack() // So that those queued behind are not held up by it.
 		l.mu.Unlock()
 		return err
 	}
@@ -104,6 +110,13 @@ func (l *Limiter) Tokens() int {
 	defer l.mu.Unlock()
 	l.refill()
 	return int(max(l.tokens, 0))
+}
+
+// giveBack returns a token that a caller of Wait took and did not use. The bucket may
+// have filled up in the meantime, and must not end up fuller than full. The lock must
+// be held.
+func (l *Limiter) giveBack() {
+	l.tokens = min(l.burst, l.tokens+1)
 }
 
 // refill adds the tokens earned since the last call. The lock must be held.

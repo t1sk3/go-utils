@@ -304,8 +304,11 @@ func FromChannel[T any](ctx context.Context, ch <-chan T) Stream[T] {
 //
 // The goroutine stops early when ctx ends, which is the only way to stop it if the
 // receiver gives up before the channel is closed: a receiver that might do so must
-// cancel ctx, or the goroutine stays blocked on its next send. ToChannel panics if
-// buffer is negative.
+// cancel ctx, or the goroutine stays blocked on its next send.
+//
+// The stream's stages run on that goroutine, so a panic in one of them cannot be
+// recovered by the caller and ends the program; a stage that can panic should recover
+// itself. ToChannel panics if buffer is negative.
 func (s Stream[T]) ToChannel(ctx context.Context, buffer int) <-chan T {
 	if buffer < 0 {
 		panic("stream: ToChannel requires a non-negative buffer")

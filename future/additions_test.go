@@ -119,7 +119,8 @@ func TestAllSettled(t *testing.T) {
 func TestPromise(t *testing.T) {
 	ctx := context.Background()
 	p := NewPromise[string]()
-	if p.Future() != p.Future() || p.Future().IsDone() {
+	first, second := p.Future(), p.Future()
+	if first != second || first.IsDone() {
 		t.Errorf("a new Promise is done, or hands out different Futures")
 	}
 	waiter := p.Future().Then(func(s string) (int, error) { return len(s), nil })

@@ -185,3 +185,34 @@ func TestConcurrentUse(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestWaitEdges(t *testing.T) {
+	// A rate so low that the wait does not fit a Duration: the wait is the longest
+	// there is, not a wrapped-around value that would let the caller through at once.
+	l, c := newTest(1e-12, 1)
+	l.Allow()
+	if err := l.Wait(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.slept) != 1 || c.slept[0] != math.MaxInt64 {
+		t.Errorf("Wait at a tiny rate slept %v, want the longest Duration", c.slept)
+	}
+
+	// A token handed back after the bucket refilled must not overfill it.
+	l, c = newTest(10, 2)
+	l.Allow()
+	l.Allow()
+	l.sleep = func(context.Context, time.Duration) error {
+		c.advance(time.Hour)
+		l.mu.Lock()
+		l.refill()
+		l.mu.Unlock()
+		return context.Canceled
+	}
+	if err := l.Wait(context.Background()); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Wait = %v", err)
+	}
+	if l.tokens != 2 || l.Tokens() != 2 {
+		t.Errorf("the bucket holds %v tokens after a token was handed back, want the burst of 2", l.tokens)
+	}
+}

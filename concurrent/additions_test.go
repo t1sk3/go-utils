@@ -2,6 +2,7 @@ package concurrent
 
 import (
 	"maps"
+	"math"
 	"slices"
 	"sync"
 	"testing"
@@ -94,7 +95,7 @@ func TestCompareAndSwap(t *testing.T) {
 func TestShardedMap(t *testing.T) {
 	for _, shards := range []int{0, 1, 3, 16} {
 		m := NewShardedMap[int, int](shards)
-		if n := len(m.shards); n&(n-1) != 0 || n < max(shards, 1) {
+		if n := len(m.shards); n&(n-1) != 0 || n < max(shards, 1) || n > maxShards {
 			t.Errorf("NewShardedMap(%d) has %d shards, want a power of two at least that", shards, n)
 		}
 		want := map[int]int{}
@@ -144,6 +145,12 @@ func TestShardedMap(t *testing.T) {
 		if m.Len() != 0 || len(m.Snapshot()) != 0 {
 			t.Errorf("Clear left %d entries", m.Len())
 		}
+	}
+}
+
+func TestShardedMapShardLimit(t *testing.T) {
+	if got := len(NewShardedMap[int, int](math.MaxInt).shards); got != maxShards {
+		t.Errorf("a huge shard count gave %d shards, want %d", got, maxShards)
 	}
 }
 

@@ -81,8 +81,18 @@ func (s *Set[T]) AddSeq(seq iter.Seq[T]) int {
 func (s *Set[T]) Pop() optional.Optional[T] {
 	for v := range s.m {
 		if v != v {
-			// delete cannot remove a value that is not equal to itself, such as NaN.
-			s.RemoveIf(func(u T) bool { return u != u })
+			// delete cannot remove a value that is not equal to itself, such as NaN,
+			// so rebuild the map without this one occurrence of it.
+			rebuilt := make(map[T]struct{}, len(s.m))
+			skipped := false
+			for u := range s.m {
+				if u != u && !skipped {
+					skipped = true
+					continue
+				}
+				rebuilt[u] = struct{}{}
+			}
+			s.m = rebuilt
 			return optional.Of(v)
 		}
 		delete(s.m, v)

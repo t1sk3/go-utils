@@ -10,6 +10,7 @@ package retry
 import (
 	"context"
 	"errors"
+	"math"
 	"math/rand/v2"
 	"time"
 )
@@ -57,8 +58,12 @@ func Do[T any](ctx context.Context, policy Policy, f func(context.Context) (T, e
 			return v, nil
 		}
 		var zero T
-		if p, ok := errors.AsType[*permanentError](err); ok {
+		if p, ok := err.(*permanentError); ok {
 			return zero, p.err
+		}
+		if _, ok := errors.AsType[*permanentError](err); ok {
+			// f wrapped a Permanent error in context of its own; keep that context.
+			return zero, err
 		}
 		if attempt == attempts || ctx.Err() != nil || (policy.RetryIf != nil && !policy.RetryIf(err)) {
 			return zero, err
@@ -71,7 +76,9 @@ func Do[T any](ctx context.Context, policy Policy, f func(context.Context) (T, e
 }
 
 // Permanent wraps err so that Do returns it at once instead of retrying. Do returns
-// err itself, without the wrapper. Permanent returns nil if err is nil.
+// err itself, without the wrapper; if the function wrapped the Permanent error further,
+// as with fmt.Errorf and %w, Do returns that error as it is. Permanent returns nil if
+// err is nil.
 func Permanent(err error) error {
 	if err == nil {
 		return nil
@@ -89,18 +96,22 @@ func (e *permanentError) Unwrap() error { return e.err }
 // next returns the delay to use after one of the given length.
 func next(delay time.Duration, policy Policy) time.Duration {
 	if policy.Multiplier > 1 {
-		scaled := float64(delay) * policy.Multiplier
-		// A delay that no longer fits a Duration is as long as one can be.
-		if scaled >= float64(1<<63-1) {
-			delay = 1<<63 - 1
-		} else {
-			delay = time.Duration(scaled)
-		}
+		delay = toDuration(float64(delay) * policy.Multiplier)
 	}
 	if policy.MaxDelay > 0 && delay > policy.MaxDelay {
 		delay = policy.MaxDelay
 	}
 	return delay
+}
+
+// toDuration converts nanoseconds to a Duration. A value that does not fit becomes the
+// longest Duration there is, because converting it directly would give an unspecified
+// result, possibly a negative one that turns a long wait into none at all.
+func toDuration(nanos float64) time.Duration {
+	if nanos >= float64(math.MaxInt64) {
+		return math.MaxInt64
+	}
+	return time.Duration(nanos)
 }
 
 // jitter spreads delay by up to the given fraction in either direction.
@@ -110,7 +121,7 @@ func jitter(delay time.Duration, fraction float64) time.Duration {
 		return delay
 	}
 	spread := (random()*2 - 1) * fraction
-	return time.Duration(float64(delay) * (1 + spread))
+	return toDuration(float64(delay) * (1 + spread))
 }
 
 // random and sleep are variables so that tests can run without waiting.

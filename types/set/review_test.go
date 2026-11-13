@@ -95,10 +95,19 @@ func TestAddSeqPopHasToSlice(t *testing.T) {
 		t.Errorf("Pop() of the zero value returned a value")
 	}
 
-	nan := Of(math.NaN(), math.NaN())
-	for i := 0; !nan.IsEmpty(); i++ {
-		if v := nan.Pop().OrElse(0); !math.IsNaN(v) || i > 2 {
-			t.Fatalf("Pop() of NaN = %v on call %d", v, i)
+	// Each NaN is a value of its own, so each Pop takes exactly one of them.
+	nan := Of(math.NaN(), math.NaN(), math.NaN())
+	for want := 2; want >= 0; want-- {
+		if v := nan.Pop().OrElse(0); !math.IsNaN(v) || nan.Len() != want {
+			t.Fatalf("Pop() of NaN = %v, leaving %d values, want %d", v, nan.Len(), want)
 		}
+	}
+	mixed := Of(math.NaN(), 1)
+	var popped2 []float64
+	for v, ok := mixed.Pop().Value(); ok; v, ok = mixed.Pop().Value() {
+		popped2 = append(popped2, v)
+	}
+	if len(popped2) != 2 || !mixed.IsEmpty() {
+		t.Errorf("Pop() until empty with a NaN gave %v", popped2)
 	}
 }

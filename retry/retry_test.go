@@ -3,6 +3,8 @@ package retry
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math"
 	"slices"
 	"testing"
 	"time"
@@ -89,6 +91,11 @@ func TestJitter(t *testing.T) {
 	if got := jitter(time.Second, 5); got != 0 {
 		t.Errorf("a Jitter above 1 was not clamped: %v", got)
 	}
+	// Spreading the longest delay upwards must not wrap around to a negative one.
+	random = func() float64 { return 1 }
+	if got := jitter(math.MaxInt64, 1); got != math.MaxInt64 {
+		t.Errorf("jitter of the longest delay = %v", got)
+	}
 	if jitter(time.Second, 0) != time.Second || jitter(time.Second, -1) != time.Second || jitter(0, 0.5) != 0 {
 		t.Errorf("jitter changed a delay it should leave alone")
 	}
@@ -103,6 +110,16 @@ func TestPermanentAndRetryIf(t *testing.T) {
 	})
 	if err != errBoom || calls != 1 {
 		t.Errorf("a Permanent error gave %v after %d calls, want errBoom itself after 1", err, calls)
+	}
+	// A Permanent error that the function wrapped further stops the retries too, and
+	// comes back with that wrapping.
+	calls = 0
+	_, err = Do(context.Background(), Policy{Attempts: 5}, func(context.Context) (int, error) {
+		calls++
+		return 0, fmt.Errorf("loading: %w", Permanent(errBoom))
+	})
+	if calls != 1 || err == nil || err.Error() != "loading: boom" || !errors.Is(err, errBoom) {
+		t.Errorf("a wrapped Permanent error gave %v after %d calls", err, calls)
 	}
 	if Permanent(nil) != nil {
 		t.Errorf("Permanent(nil) is not nil")
