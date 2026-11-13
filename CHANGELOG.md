@@ -37,6 +37,35 @@ the module is at v0, so minor releases may break the API.
 
 ### Added
 
+- New packages:
+  - `types/result`: `Result[T]`, a success or an error as one value.
+  - `types/triple`: `Triple[A, B, C]`.
+  - `types/multimap`: `Multimap[K, V]`, any number of values per key.
+  - `types/bimap`: `BiMap[K, V]`, a one-to-one map with lookups from both sides.
+  - `types/ring`: `Ring[T]`, a fixed-size buffer that overwrites its oldest value.
+  - `types/trie`: `Trie[V]`, string keys with prefix search and longest-prefix match.
+  - `retry`: `Do`, with attempts, backoff, jitter, `RetryIf` and `Permanent`.
+  - `ratelimit`: `Limiter`, a token bucket with `Allow` and `Wait`.
+- `stream`: `Reverse`, `Intersperse`, `Cycle`, `TakeLast`, `Top`, `MinBy`, `MaxBy`,
+  `ZipWith`, `TryMap`, `ToChannel`, and the functions `Unzip`, `Flatten`,
+  `CollectResults` and `FromChannel`. Parallel streams gain `WithContext`, which cuts
+  the stream short when a context ends, and `Unordered`, which lets results come out
+  as they finish.
+- `future`: `GoCtx`, `IsDone`, `TryGet`, `Recover`, `OrElse`, `AllSettled`, `Promise` and
+  `Pool`.
+- `concurrent`: `Map.GetOrDefault`, `Replace`, `ComputeIfPresent`, `RemoveIf`, `Keys` and
+  `Values`; the functions `CompareAndSwap` and `CompareAndDelete`; `ShardedMap`; `Set`.
+- `optional`: `Equal`, `EqualFunc`, and `Field[T]`, which tells a JSON field that was
+  left out from one that was `null`.
+- `linked`: JSON marshalling in insertion order for `Map` and `Set`, and `LRU`.
+- `sorted`: `RangeClosed`, `From`, `Until`, `BackwardFrom`, `BackwardRange`, and `Rank`
+  and `At` in logarithmic time, on both `Map` and `Set`.
+- `pq`: `NewMin`, `NewMax`, `Collect`, `PushPop` and `RemoveFunc`.
+- `set`: `AddSeq`, `Pop`, `HasAll`, `HasAny` and `ToSlice`.
+- `deque`: `Set`, `Rotate` and JSON marshalling.
+- `vector`: `Vec4`, `Slerp`, `ClampLength`, `Floor`, `Ceil` and `Round` on every vector
+  type, `Vec3.Rotate` around an axis, and `AddInPlace`, `SubInPlace` and `ScaleInPlace`
+  on `VecN`.
 - `optional.Optional.OrZero`, a name for `Get` that says what happens when empty.
 - `pq.Queue.String`.
 - Fuzz tests for `sorted.Map`, `linked.Map`, `deque.Deque` and `pq.Queue`.

@@ -12,5 +12,11 @@
 //   - [github.com/t1sk3/go-utils/types/set]: Set, an unordered collection of distinct values
 //   - [github.com/t1sk3/go-utils/types/linked]: Map and Set that remember insertion order
 //   - [github.com/t1sk3/go-utils/types/vector]: VecN, Vec2 and Vec3, Euclidean vectors with the usual arithmetic
+//   - [github.com/t1sk3/go-utils/types/result]: Result, a success or an error as one value
+//   - [github.com/t1sk3/go-utils/types/triple]: Triple, three values of possibly different types
+//   - [github.com/t1sk3/go-utils/types/multimap]: Multimap, any number of values per key
+//   - [github.com/t1sk3/go-utils/types/bimap]: BiMap, a one-to-one map with lookups from both sides
+//   - [github.com/t1sk3/go-utils/types/ring]: Ring, a fixed-size buffer that overwrites its oldest value
+//   - [github.com/t1sk3/go-utils/types/trie]: Trie, string keys with prefix search
 //   - [github.com/t1sk3/go-utils/types/constraints]: Integer, Number, Numeric and friends for generic code
 package types

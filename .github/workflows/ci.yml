@@ -80,6 +80,7 @@ jobs:
           go test ./types/linked -run '^$' -fuzz '^FuzzMap$' -fuzztime 20s
           go test ./types/deque -run '^$' -fuzz '^FuzzDeque$' -fuzztime 20s
           go test ./types/pq -run '^$' -fuzz '^FuzzQueue$' -fuzztime 20s
+          go test ./types/trie -run '^$' -fuzz '^FuzzTrie$' -fuzztime 20s
 
   # int is 32 bits here, which the size arithmetic in stream.Range and friends has to
   # get right. The race detector does not support this platform.

@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"context"
 	"iter"
 	"sync"
 )
@@ -37,6 +38,9 @@ import (
 // no callback outlives it. If the source blocks, that wait includes the source's current
 // read.
 //
+// WithContext lets a context cut the stream short, and Unordered trades the ordering
+// for throughput.
+//
 // The zero value is an empty ParallelStream.
 type ParallelStream[T any] struct {
 	// tasks produces one function per source element, which runs the parallel stages
@@ -44,6 +48,40 @@ type ParallelStream[T any] struct {
 	tasks iter.Seq[func() (T, bool)]
 	n     int
 	size  int
+	// ctx, when not nil, stops the stream early once it ends.
+	ctx context.Context
+	// unordered makes results come out as they finish instead of in source order.
+	unordered bool
+}
+
+// WithContext returns a ParallelStream that stops early when ctx ends. From that moment
+// no further element is read from the source and no further stage call starts; the
+// calls already running finish, and their results still come out. The stream then ends
+// as if the source had, so check ctx.Err() afterwards to tell a complete run from one
+// that was cut short.
+//
+//	pages := urls.Parallel(8).WithContext(ctx).Map(fetch).ToSlice()
+//	if err := ctx.Err(); err != nil { ... } // pages holds only the first part
+//
+// The stages are not interrupted: to stop a call that is already running, have the
+// stage function watch ctx itself.
+func (p ParallelStream[T]) WithContext(ctx context.Context) ParallelStream[T] {
+	p.ctx = ctx
+	// A stream that can be cut short has no known size.
+	p.size = -1
+	return p
+}
+
+// Unordered returns a ParallelStream whose results come out in the order they finish
+// instead of the order of the source. A slow element then no longer holds back the
+// results behind it, which gives better throughput when the elements take very
+// different amounts of time and their order does not matter.
+//
+// A panic in a stage is still raised on the consuming goroutine, but among the results,
+// not at the position of the element that caused it.
+func (p ParallelStream[T]) Unordered() ParallelStream[T] {
+	p.unordered = true
+	return p
 }
 
 // Parallel returns a ParallelStream of the elements of s whose stages run on at most n
@@ -105,9 +143,16 @@ func (p ParallelStream[T]) Sequential() Stream[T] {
 	if p.tasks == nil {
 		return Stream[T]{}
 	}
-	tasks, n := p.tasks, p.n
 	return Stream[T]{size: p.size, seq: func(yield func(T) bool) {
-		runParallel(tasks, n, yield)
+		var ctxDone <-chan struct{}
+		if p.ctx != nil {
+			ctxDone = p.ctx.Done()
+		}
+		if p.unordered {
+			runUnordered(p.tasks, p.n, ctxDone, yield)
+		} else {
+			runParallel(p.tasks, p.n, ctxDone, yield)
+		}
 	}}
 }
 
@@ -116,7 +161,10 @@ func parallelStage[T, R any](p ParallelStream[T], size int, stage func(T) (R, bo
 		return ParallelStream[R]{}
 	}
 	tasks := p.tasks
-	return ParallelStream[R]{n: p.n, size: size, tasks: func(yield func(func() (R, bool)) bool) {
+	if p.ctx != nil {
+		size = -1
+	}
+	return ParallelStream[R]{n: p.n, size: size, ctx: p.ctx, unordered: p.unordered, tasks: func(yield func(func() (R, bool)) bool) {
 		for task := range tasks {
 			next := func() (R, bool) {
 				if v, ok := task(); ok {
@@ -142,8 +190,9 @@ type parallelResult[T any] struct {
 
 // runParallel reads tasks on one goroutine, runs each on its own goroutine with at most
 // n running at once, and passes the results to yield in the order of tasks. It returns
-// only after every goroutine it started has finished.
-func runParallel[T any](tasks iter.Seq[func() (T, bool)], n int, yield func(T) bool) {
+// only after every goroutine it started has finished. When ctxDone is closed, it stops
+// reading tasks; ctxDone may be nil.
+func runParallel[T any](tasks iter.Seq[func() (T, bool)], n int, ctxDone <-chan struct{}, yield func(T) bool) {
 	// done tells the reader that the consumer has stopped.
 	done := make(chan struct{})
 	// pending holds a result slot per element, in order. Its capacity limits how far the
@@ -169,10 +218,21 @@ func runParallel[T any](tasks iter.Seq[func() (T, bool)], n int, yield func(T) b
 			}
 		}()
 		for task := range tasks {
+			// Checked on its own first: a select with several ready cases picks one at
+			// random, and an ended context has to win.
+			select {
+			case <-ctxDone:
+				finished = true
+				return
+			default:
+			}
 			slot := make(chan parallelResult[T], 1)
 			select {
 			case pending <- slot:
 			case <-done:
+				finished = true
+				return
+			case <-ctxDone:
 				finished = true
 				return
 			}
@@ -181,19 +241,16 @@ func runParallel[T any](tasks iter.Seq[func() (T, bool)], n int, yield func(T) b
 			case <-done:
 				finished = true
 				return
+			case <-ctxDone:
+				// The consumer is still reading and will wait for this slot, so fill it
+				// with a result that says there is no element.
+				slot <- parallelResult[T]{}
+				finished = true
+				return
 			}
 			wg.Go(func() {
 				defer func() { <-running }()
-				var r parallelResult[T]
-				completed := false
-				defer func() {
-					if !completed {
-						r = failedResult[T](recover())
-					}
-					slot <- r
-				}()
-				r.value, r.ok = task()
-				completed = true
+				runTask(task, func(r parallelResult[T]) { slot <- r })
 			})
 		}
 		finished = true
@@ -205,6 +262,88 @@ func runParallel[T any](tasks iter.Seq[func() (T, bool)], n int, yield func(T) b
 	}()
 	for slot := range pending {
 		r := <-slot
+		if r.panicked {
+			panic(r.panicValue)
+		}
+		if r.ok && !yield(r.value) {
+			return
+		}
+	}
+}
+
+// runTask runs one task and hands its result to deliver, turning a panic into a result.
+// The result is delivered from a deferred call and not returned, because a task that
+// calls runtime.Goexit never returns, while its deferred calls still run.
+func runTask[T any](task func() (T, bool), deliver func(parallelResult[T])) {
+	var r parallelResult[T]
+	completed := false
+	defer func() {
+		if !completed {
+			r = failedResult[T](recover())
+		}
+		deliver(r)
+	}()
+	r.value, r.ok = task()
+	completed = true
+}
+
+// runUnordered is runParallel without the ordering: results are passed to yield as
+// they finish. At most n tasks run at once, and at most about n results wait to be
+// consumed, because a task keeps its place among the n until its result is taken.
+func runUnordered[T any](tasks iter.Seq[func() (T, bool)], n int, ctxDone <-chan struct{}, yield func(T) bool) {
+	done := make(chan struct{})
+	results := make(chan parallelResult[T])
+	running := make(chan struct{}, n)
+
+	var reader sync.WaitGroup
+	reader.Go(func() {
+		var workers sync.WaitGroup
+		finished := false
+		defer func() {
+			if !finished {
+				// The source panicked.
+				select {
+				case results <- failedResult[T](recover()):
+				case <-done:
+				}
+			}
+			workers.Wait()
+			close(results)
+		}()
+		for task := range tasks {
+			select {
+			case <-ctxDone:
+				finished = true
+				return
+			default:
+			}
+			select {
+			case running <- struct{}{}:
+			case <-done:
+				finished = true
+				return
+			case <-ctxDone:
+				finished = true
+				return
+			}
+			workers.Go(func() {
+				defer func() { <-running }()
+				runTask(task, func(r parallelResult[T]) {
+					select {
+					case results <- r:
+					case <-done:
+					}
+				})
+			})
+		}
+		finished = true
+	})
+
+	defer func() {
+		close(done)
+		reader.Wait()
+	}()
+	for r := range results {
 		if r.panicked {
 			panic(r.panicValue)
 		}
