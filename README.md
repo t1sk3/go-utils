@@ -3,7 +3,12 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/t1sk3/go-utils.svg)](https://pkg.go.dev/github.com/t1sk3/go-utils)
 [![CI](https://github.com/t1sk3/go-utils/actions/workflows/ci.yml/badge.svg)](https://github.com/t1sk3/go-utils/actions/workflows/ci.yml)
 
-Small, dependency-free generic utilities. Requires Go 1.27 or later.
+Small, dependency-free generic utilities.
+
+> **Requires Go 1.27 or later.** The API is built on generic methods, which Go gained in
+> 1.27, so that pipelines such as `s.Filter(f).Map(g)` can change the element type and
+> still read left to right. That is a deliberate choice: there is no fallback for older
+> toolchains.
 
 | Package | What it gives you |
 |---|---|
@@ -32,41 +37,8 @@ accept or return an `optional.Optional` without depending on `stream`.
 
 Releases are tagged `vX.Y.Z`. The module is still at v0, so minor releases may contain
 breaking changes until v1.0.0. See [RELEASING.md](RELEASING.md) for how releases are cut.
-
-### Upgrading from v0.6.1
-
-`Zip`, `Enumerate`, `Chunk` and `Window` are methods now, and the functions are gone:
-
-| Removed | Use instead |
-|---|---|
-| `stream.Zip(a, b)` | `a.Zip(b)` |
-| `stream.Enumerate(s)` | `s.Enumerate()` |
-| `stream.Chunk(s, n)`, `stream.Window(s, n)` | `s.Chunk(n)`, `s.Window(n)` |
-
-The results have the same types as before (`Stream[[]T]`, `Stream[pair.Pair[...]]`).
-
-### Upgrading to v0.6.1
-
-v0.6.1 removes the package functions that v0.6.0 kept next to the new generic methods.
-Rewrite each call with its first argument as the receiver:
-
-| Removed | Use instead |
-|---|---|
-| `stream.Map(s, f)`, `stream.FlatMap`, `stream.DistinctBy`, `stream.Fold`, `stream.Scan`, `stream.GroupBy`, `stream.CountBy`, `stream.ToMap`, `stream.ToMapMerge`, `stream.Collect`, `stream.MapConcurrent` | `s.Map(f)`, `s.FlatMap(…)`, … |
-| `stream.ParallelMap(p, f)` | `p.Map(f)` |
-| `optional.Map(o, f)`, `optional.FlatMap(o, f)` | `o.Map(f)`, `o.FlatMap(f)` |
-| `future.Then(fut, f)` | `fut.Then(f)` |
-| `stream.FromArray(s)` (already deprecated) | `stream.FromSlice(s)` |
-
-With explicit type arguments, drop the first one, which the receiver now supplies:
-`stream.Map[int, string](s, nil)` becomes `s.Map[string](nil)`.
-
-### Older versions
-
-Versions up to v0.5.0 shipped `types` as a separate module
-(`github.com/t1sk3/go-utils/types`). If your `go.mod` still requires it, remove it with
-`go get github.com/t1sk3/go-utils/types@none` to avoid “ambiguous import” errors.
-
+Upgrading from an older version? [CHANGELOG.md](CHANGELOG.md) lists what changed in each
+release and how to adapt. To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## stream
 
@@ -230,7 +202,7 @@ missing := required.Difference(granted)
 
 `Set` has `Union`, `Intersection`, `Difference`, `SymmetricDifference`,
 `IsSubsetOf`, `IsSupersetOf`, `IsDisjoint`, `Equal`, iterates with `All()` and marshals
-to/from a JSON array. `Add`, `Remove`, `RemoveIf` and `RetainAll` return how many values
+to/from a JSON array, with the elements in a stable order. `Add`, `Remove`, `RemoveIf` and `RetainAll` return how many values
 they changed.
 Like a map, copies share storage; use `Clone` for an independent copy.
 
@@ -257,6 +229,117 @@ Elements can be any integer or float type. Arithmetic stays in `T`; lengths and 
 `float64`, and results such as `Normalize` convert back to `T`, so for integer vectors
 convert first with `Convert`, `Convert2` or `Convert3`. Combining `VecN`s of different
 dimensions panics.
+
+## future
+
+```go
+import "github.com/t1sk3/go-utils/future"
+
+user := future.Go(func() (User, error) { return fetchUser(ctx, id) })
+orders := future.Go(func() ([]Order, error) { return fetchOrders(ctx, id) })
+
+u, err := user.Get(ctx)
+o, err := orders.Get(ctx)
+```
+
+`Go` runs a function on a new goroutine and returns a `Future[T]` of its result, which
+can be read any number of times from any goroutine. `Then` chains a second step that may
+change the type, `All` waits for every future and fails fast, and `Any` returns the first
+success:
+
+```go
+total := future.Go(fetchCart).Then(priceCart)
+pages, err := future.All(ctx, future.Go(fetchA), future.Go(fetchB))
+fastest, err := future.Any(ctx, future.Go(fromMirror1), future.Go(fromMirror2))
+```
+
+A panic in the function becomes a `*future.PanicError` instead of crashing the program;
+its `Stack` field holds the trace. Canceling the context passed to `Get` stops the wait,
+not the work: to cancel the work, have the function watch a context of its own.
+
+## concurrent
+
+```go
+import "github.com/t1sk3/go-utils/concurrent"
+
+var cache concurrent.Map[string, *Template] // the zero value is ready to use
+
+tmpl := cache.ComputeIfAbsent(name, parse) // parse runs once per missing key
+hits.Merge(path, 1, func(a, b int) int { return a + b })
+```
+
+`Map[K, V]` is safe for concurrent use and makes compound updates atomic:
+`ComputeIfAbsent`, `Compute`, `Merge` and `PutIfAbsent`, next to `Get`, `Has`, `Put`,
+`Remove`, `Len`, `Clear`, `Snapshot` and `All`. One read-write lock guards the whole map,
+so prefer `sync.Map` for read-mostly maps that need none of the compound updates.
+Functions passed to the Map run while it is locked and must not call back into it.
+
+## deque
+
+```go
+import "github.com/t1sk3/go-utils/types/deque"
+
+var q deque.Deque[Job] // the zero value is ready to use
+q.PushBack(a, b)
+next, ok := q.PopFront().Value() // FIFO; use PopBack for a stack
+```
+
+A ring buffer with amortized constant-time `PushFront`, `PushBack`, `PopFront` and
+`PopBack`, plus `Front`, `Back`, `At`, `All` and `Backward`. The buffer grows and shrinks
+with its contents.
+
+## pq
+
+```go
+import "github.com/t1sk3/go-utils/types/pq"
+
+tasks := pq.New(func(a, b Task) int { return cmp.Compare(a.Deadline, b.Deadline) })
+tasks.Push(t1, t2)
+next, ok := tasks.Pop().Value() // the earliest deadline
+```
+
+A binary heap ordered by a comparator, so `cmp.Compare` gives a min-heap and
+`stream.Reversed` of it a max-heap. `Drain` iterates in priority order.
+
+## sorted
+
+```go
+import "github.com/t1sk3/go-utils/types/sorted"
+
+prices := sorted.NewOrderedMap[time.Time, float64]()
+prices.Put(t, 9.99)
+latest := prices.Floor(now) // the most recent price at or before now
+for at, price := range prices.Range(start, end) { ... }
+```
+
+`Map[K, V]` and `Set[T]` keep their contents in comparator order in an AVL tree. Besides
+lookups in logarithmic time they have `First`, `Last`, `PopFirst`, `PopLast`, `Floor`,
+`Ceiling`, `Lower`, `Higher`, `Range` and `Backward`.
+
+## linked
+
+```go
+import "github.com/t1sk3/go-utils/types/linked"
+
+cache := linked.NewMap[string, Page]()
+if page, ok := cache.Get(key).Value(); ok {
+	cache.MoveToBack(key) // most recently used
+	return page
+}
+cache.Put(key, load(key))
+if cache.Len() > limit {
+	cache.PopFirst() // least recently used
+}
+```
+
+`Map[K, V]` and `Set[T]` are hash-based and iterate in insertion order. `MoveToBack`,
+`MoveToFront`, `PopFirst` and `PopLast` take constant time, which is what an LRU cache
+needs.
+
+## pair
+
+`pair.Pair[A, B]` holds two values. It is what `Zip`, `Enumerate` and `FromMap` produce,
+and `First`, `Last` and friends on the maps return. `p.Unpack()` gives both values back.
 
 ## Performance
 

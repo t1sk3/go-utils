@@ -169,3 +169,9 @@ func TestOrElseErr(t *testing.T) {
 		t.Errorf("empty = %d, %v", v, err)
 	}
 }
+
+func TestOrZero(t *testing.T) {
+	if Of(5).OrZero() != 5 || Empty[int]().OrZero() != 0 || Empty[string]().OrZero() != "" {
+		t.Errorf("OrZero does not return the value or the zero value")
+	}
+}

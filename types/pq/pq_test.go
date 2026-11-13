@@ -146,3 +146,16 @@ func BenchmarkPushPop(b *testing.B) {
 		q.Pop()
 	}
 }
+
+func TestString(t *testing.T) {
+	q := New(cmp.Compare[int], 3, 1, 2)
+	if got := q.String(); got != "Queue[1 2 3]" {
+		t.Errorf("String() = %q", got)
+	}
+	if q.Len() != 3 {
+		t.Errorf("String() removed elements")
+	}
+	if got := New(cmp.Compare[int]).String(); got != "Queue[]" {
+		t.Errorf("String() of an empty Queue = %q", got)
+	}
+}

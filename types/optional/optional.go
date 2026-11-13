@@ -63,7 +63,18 @@ func (o Optional[T]) IsEmpty() bool {
 }
 
 // Get returns the contained value, or the zero value of T if the Optional is empty.
+//
+// Unlike Java's Optional.get, it does not fail on an empty Optional, so an absent
+// value and a present zero value look the same. Use Value or IsPresent to tell them
+// apart, MustGet to panic when empty, and OrZero where the zero value is what you
+// want and the call should say so.
 func (o Optional[T]) Get() T {
+	return o.value
+}
+
+// OrZero returns the contained value, or the zero value of T if the Optional is empty.
+// It is the same as Get under a name that states what happens when empty.
+func (o Optional[T]) OrZero() T {
 	return o.value
 }
 

@@ -16,8 +16,10 @@
 package pq
 
 import (
+	"fmt"
 	"iter"
 	"slices"
+	"strings"
 
 	"github.com/t1sk3/go-utils/types/optional"
 )
@@ -114,6 +116,23 @@ func (q *Queue[T]) Drain() iter.Seq[T] {
 			}
 		}
 	}
+}
+
+// String formats the elements in priority order, for example "Queue[1 2 3]". It sorts
+// a copy, so it takes O(n log n) time and leaves q unchanged.
+func (q *Queue[T]) String() string {
+	var b strings.Builder
+	b.WriteString("Queue[")
+	first := true
+	for v := range q.Clone().Drain() {
+		if !first {
+			b.WriteByte(' ')
+		}
+		first = false
+		fmt.Fprint(&b, v)
+	}
+	b.WriteByte(']')
+	return b.String()
 }
 
 func (q *Queue[T]) siftUp(i int) {

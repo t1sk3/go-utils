@@ -17,6 +17,11 @@ import (
 
 // Distinct returns a Stream of the elements of s with duplicates removed, keeping
 // the first occurrence of each.
+//
+// Elements are compared the way map keys are. A NaN is not equal to itself, so every
+// NaN is kept, and if T is an interface type, an element holding something unhashable,
+// such as a slice, makes the terminal operation panic. Use DistinctBy with a key that
+// avoids both when that matters.
 func Distinct[T comparable](s Stream[T]) Stream[T] {
 	return s.DistinctBy(func(v T) T { return v })
 }

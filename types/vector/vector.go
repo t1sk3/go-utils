@@ -119,7 +119,9 @@ func (v VecN[T]) Neg() VecN[T] {
 	return v.mapc(func(a T) T { return -a })
 }
 
-// Abs returns v with every component replaced by its absolute value.
+// Abs returns v with every component replaced by its absolute value. The smallest
+// value of a signed integer type has no positive counterpart and stays as it is, as
+// with unary minus.
 func (v VecN[T]) Abs() VecN[T] {
 	return v.mapc(abs[T])
 }
@@ -165,12 +167,11 @@ func (v VecN[T]) LengthSquared() T { return v.Dot(v) }
 
 // Length returns the Euclidean length (magnitude) of v.
 func (v VecN[T]) Length() float64 {
-	var s float64
+	var n norm
 	for _, x := range v {
-		f := float64(x)
-		s += f * f
+		n.add(float64(x))
 	}
-	return math.Sqrt(s)
+	return n.value()
 }
 
 // DistanceSquared returns the squared Euclidean distance between v and o.
@@ -187,12 +188,11 @@ func (v VecN[T]) DistanceSquared(o VecN[T]) T {
 // Distance returns the Euclidean distance between v and o.
 func (v VecN[T]) Distance(o VecN[T]) float64 {
 	mustMatch(len(v), len(o))
-	var s float64
+	var n norm
 	for i := range v {
-		d := float64(v[i]) - float64(o[i])
-		s += d * d
+		n.add(float64(v[i]) - float64(o[i]))
 	}
-	return math.Sqrt(s)
+	return n.value()
 }
 
 // Normalize returns the unit vector pointing in the same direction as v. The zero
@@ -324,6 +324,44 @@ func mustMatch(a, b int) {
 	if a != b {
 		panic(fmt.Sprintf("vector: dimension mismatch: %d != %d", a, b))
 	}
+}
+
+// norm accumulates a Euclidean length the way math.Hypot does for two components:
+// it keeps the largest magnitude seen as a scale and sums the squares of the scaled
+// components, so squaring cannot overflow to +Inf or underflow to 0 while the length
+// itself is representable.
+type norm struct {
+	scale, sum float64
+}
+
+func (n *norm) add(x float64) {
+	x = math.Abs(x)
+	switch {
+	case x == 0:
+	case math.IsNaN(x) || math.IsNaN(n.scale):
+		n.scale = math.NaN()
+	case x > n.scale:
+		if math.IsInf(x, 1) {
+			n.scale, n.sum = x, 1
+			return
+		}
+		r := n.scale / x
+		n.sum = 1 + n.sum*r*r
+		n.scale = x
+	default:
+		r := x / n.scale
+		n.sum += r * r
+	}
+}
+
+func (n *norm) value() float64 {
+	return n.scale * math.Sqrt(n.sum)
+}
+
+// hypot3 returns the length of (x, y, z) without the overflow and underflow that
+// squaring the components directly would cause.
+func hypot3(x, y, z float64) float64 {
+	return math.Hypot(math.Hypot(x, y), z)
 }
 
 func abs[T constraints.Number](x T) T {

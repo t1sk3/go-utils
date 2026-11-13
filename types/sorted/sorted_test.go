@@ -353,3 +353,23 @@ func BenchmarkGet(b *testing.B) {
 		m.Get(rng.IntN(1 << 20))
 	}
 }
+
+func TestPutReturnsPrevious(t *testing.T) {
+	m := NewOrderedMap[int, string]()
+	for i := range 50 {
+		if old := m.Put(i, "first"); old.IsPresent() {
+			t.Fatalf("Put of new key %d returned %v", i, old)
+		}
+	}
+	for i := range 50 {
+		if old, ok := m.Put(i, "").Value(); !ok || old != "first" {
+			t.Fatalf("Put of existing key %d returned %q, %v", i, old, ok)
+		}
+		if old, ok := m.Put(i, "x").Value(); !ok || old != "" {
+			t.Fatalf("Put over a zero value at %d returned %q, %v", i, old, ok)
+		}
+	}
+	if m.Len() != 50 {
+		t.Errorf("Len() = %d after replacing values", m.Len())
+	}
+}

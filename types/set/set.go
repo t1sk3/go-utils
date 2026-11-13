@@ -5,12 +5,18 @@
 //	var seen set.Set[string]
 //	seen.Add("a", "b")
 //
+// Values are compared the way map keys are. A NaN is not equal to itself, so each one
+// added is a separate value that Has does not find and Remove cannot remove; RemoveIf
+// and Clear can. If T is an interface type, a value holding something unhashable, such
+// as a slice, makes the method panic.
+//
 // Like a map, a Set refers to shared storage: copying a non-empty Set gives a second
 // handle to the same elements. Use Clone for an independent copy. A Set is not safe
 // for concurrent use without external locking.
 package set
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"iter"
@@ -68,10 +74,33 @@ func (s *Set[T]) Remove(values ...T) int {
 // RemoveIf removes the values that satisfy predicate and returns how many it removed.
 func (s *Set[T]) RemoveIf(predicate func(T) bool) int {
 	before := len(s.m)
+	// delete cannot remove a value that is not equal to itself, such as NaN. Those are
+	// counted, and if any should go, the map is rebuilt without them.
+	var keptUnequal []T
+	removeUnequal := false
 	for v := range s.m {
-		if predicate(v) {
-			delete(s.m, v)
+		switch match := predicate(v); {
+		case v == v:
+			if match {
+				delete(s.m, v)
+			}
+		case match:
+			removeUnequal = true
+		default:
+			keptUnequal = append(keptUnequal, v)
 		}
+	}
+	if removeUnequal {
+		rebuilt := make(map[T]struct{}, len(s.m))
+		for v := range s.m {
+			if v == v {
+				rebuilt[v] = struct{}{}
+			}
+		}
+		for _, v := range keptUnequal {
+			rebuilt[v] = struct{}{}
+		}
+		s.m = rebuilt
 	}
 	return before - len(s.m)
 }
@@ -209,13 +238,30 @@ func (s Set[T]) String() string {
 	return "Set[" + strings.Join(parts, " ") + "]"
 }
 
-// MarshalJSON encodes s as a JSON array, in no particular order.
+// MarshalJSON encodes s as a JSON array. The elements are sorted by their encoded
+// form, so the same Set always produces the same bytes, which keeps golden files,
+// caches and diffs stable. That order is not numeric: 10 sorts before 9.
 func (s Set[T]) MarshalJSON() ([]byte, error) {
-	values := make([]T, 0, len(s.m))
+	encoded := make([][]byte, 0, len(s.m))
+	size := 2
 	for v := range s.m {
-		values = append(values, v)
+		b, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		encoded = append(encoded, b)
+		size += len(b) + 1
 	}
-	return json.Marshal(values)
+	slices.SortFunc(encoded, bytes.Compare)
+	out := make([]byte, 0, size)
+	out = append(out, '[')
+	for i, b := range encoded {
+		if i > 0 {
+			out = append(out, ',')
+		}
+		out = append(out, b...)
+	}
+	return append(out, ']'), nil
 }
 
 // UnmarshalJSON decodes a JSON array into s, replacing its contents. Duplicate

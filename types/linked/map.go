@@ -45,12 +45,14 @@ func NewMap[K comparable, V any]() *Map[K, V] {
 	return &Map[K, V]{}
 }
 
-// Put sets the value for key. A new key goes to the back. An existing key keeps its
-// position; call MoveToBack as well to move it.
-func (m *Map[K, V]) Put(key K, value V) {
+// Put sets the value for key and returns the previous value, if there was one. A new
+// key goes to the back. An existing key keeps its position; call MoveToBack as well to
+// move it.
+func (m *Map[K, V]) Put(key K, value V) optional.Optional[V] {
 	if n, ok := m.nodes[key]; ok {
+		old := n.value
 		n.value = value
-		return
+		return optional.Of(old)
 	}
 	if m.nodes == nil {
 		m.nodes = make(map[K]*node[K, V])
@@ -58,6 +60,7 @@ func (m *Map[K, V]) Put(key K, value V) {
 	n := &node[K, V]{key: key, value: value}
 	m.nodes[key] = n
 	m.linkLast(n)
+	return optional.Empty[V]()
 }
 
 // Get returns the value for key, or an empty Optional if key is not present.
