@@ -35,6 +35,19 @@ func TestLengthAtExtremes(t *testing.T) {
 	if got := Of(1, math.Inf(-1), 2).Length(); !math.IsInf(got, 1) {
 		t.Errorf("Length with an infinite component = %v", got)
 	}
+	// Infinity wins wherever it stands and however often, as it does in math.Hypot.
+	inf := math.Inf(1)
+	for _, v := range []VecN[float64]{{inf, inf}, {inf, -inf, 1}, {1, inf, inf, 2}, {inf, math.NaN()}, {math.NaN(), inf}, {0, inf}} {
+		if got := v.Length(); !math.IsInf(got, 1) {
+			t.Errorf("Length of %v = %v, want +Inf", v, got)
+		}
+		if got := v.Distance(Zero[float64](len(v))); !math.IsInf(got, 1) {
+			t.Errorf("Distance of %v from the origin = %v, want +Inf", v, got)
+		}
+	}
+	if got, want := Of3(inf, inf, 0).Length(), Of2(inf, inf).Length(); got != want {
+		t.Errorf("Vec3 and Vec2 disagree on an infinite length: %v, %v", got, want)
+	}
 	if got := Of(1, math.NaN(), 2).Length(); !math.IsNaN(got) {
 		t.Errorf("Length with a NaN component = %v", got)
 	}
