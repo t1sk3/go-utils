@@ -330,21 +330,24 @@ func mustMatch(a, b int) {
 // it keeps the largest magnitude seen as a scale and sums the squares of the scaled
 // components, so squaring cannot overflow to +Inf or underflow to 0 while the length
 // itself is representable.
+//
+// Like math.Hypot, an infinite component makes the length +Inf even if another
+// component is NaN; otherwise a NaN component makes it NaN.
 type norm struct {
 	scale, sum float64
+	inf        bool
 }
 
 func (n *norm) add(x float64) {
 	x = math.Abs(x)
 	switch {
+	case math.IsInf(x, 1):
+		// Kept apart from scale: dividing one infinity by another would give NaN.
+		n.inf = true
 	case x == 0:
 	case math.IsNaN(x) || math.IsNaN(n.scale):
 		n.scale = math.NaN()
 	case x > n.scale:
-		if math.IsInf(x, 1) {
-			n.scale, n.sum = x, 1
-			return
-		}
 		r := n.scale / x
 		n.sum = 1 + n.sum*r*r
 		n.scale = x
@@ -355,6 +358,9 @@ func (n *norm) add(x float64) {
 }
 
 func (n *norm) value() float64 {
+	if n.inf {
+		return math.Inf(1)
+	}
 	return n.scale * math.Sqrt(n.sum)
 }
 

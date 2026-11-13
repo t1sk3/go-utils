@@ -218,23 +218,31 @@ func checkFutures[T any](futures []*Future[T], op string) {
 
 // Any returns the value of the first future to succeed, and the other futures keep
 // running. If every future fails, it returns all their errors joined, in the order
-// given. If ctx ends first, it returns the context's error, unless a value is already
-// available. With no futures, it returns ErrNoFutures. Any panics if a future is nil.
+// given. If ctx ends first, it returns the context's error, unless the outcome is
+// already available. With no futures, it returns ErrNoFutures. Any panics if a future is nil.
 func Any[T any](ctx context.Context, futures ...*Future[T]) (T, error) {
 	var zero T
 	if len(futures) == 0 {
 		return zero, ErrNoFutures
 	}
 	checkFutures(futures, "Any")
-	// A value that is already available wins over a context that has ended, as in Get.
-	for _, fut := range futures {
+	// An outcome that is already available wins over a context that has ended, as in
+	// Get: the first value, or the errors if every future has failed.
+	ready := make([]error, len(futures))
+	allFailed := true
+	for i, fut := range futures {
 		select {
 		case <-fut.done:
 			if fut.err == nil {
 				return fut.value, nil
 			}
+			ready[i] = fut.err
 		default:
+			allFailed = false
 		}
+	}
+	if allFailed {
+		return zero, errors.Join(ready...)
 	}
 	finished := make(chan struct{})
 	defer close(finished)

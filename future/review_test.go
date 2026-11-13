@@ -41,6 +41,10 @@ func TestReadyOutcomeBeatsEndedContext(t *testing.T) {
 		if v, err := Any(ctx, never, Failed[int](errBoom), Completed(7)); err != nil || v != 7 {
 			t.Fatalf("Any with a completed future = %v, %v", v, err)
 		}
+		other := errors.New("other")
+		if _, err := Any(ctx, Failed[int](errBoom), Failed[int](other)); !errors.Is(err, errBoom) || !errors.Is(err, other) {
+			t.Fatalf("Any of failed futures = %v, want both errors and not the context's", err)
+		}
 	}
 	if _, err := All(ctx, never, Completed(1)); !errors.Is(err, context.Canceled) {
 		t.Errorf("All with a pending future = %v, want context.Canceled", err)
