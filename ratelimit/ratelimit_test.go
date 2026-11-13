@@ -111,7 +111,7 @@ func TestWaitQueuesInOrder(t *testing.T) {
 	}
 
 	// Callers that queue before any of them has slept wait one, two, three intervals.
-	l, c = newTest(10, 1)
+	l, _ = newTest(10, 1)
 	l.Allow()
 	l.sleep = func(context.Context, time.Duration) error { return nil }
 	var waits []time.Duration
