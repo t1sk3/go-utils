@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # A weekly run catches vulnerabilities published since the last change.
+  schedule:
+    - cron: "0 6 * * 1"
 
 permissions:
   contents: read
@@ -18,9 +21,9 @@ jobs:
         # The minimum version from go.mod and the latest stable release.
         go: ["1.27", "stable"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ matrix.go }}
 
@@ -67,3 +70,46 @@ jobs:
 
       - name: Benchmarks compile and run
         run: go test -run '^$' -bench . -benchtime 1x ./...
+
+      # Each fuzz target runs briefly against fresh inputs. The seed corpus already runs
+      # as part of the tests above.
+      - name: Fuzz
+        if: matrix.go == 'stable'
+        run: |
+          go test ./types/sorted -run '^$' -fuzz '^FuzzMap$' -fuzztime 20s
+          go test ./types/linked -run '^$' -fuzz '^FuzzMap$' -fuzztime 20s
+          go test ./types/deque -run '^$' -fuzz '^FuzzDeque$' -fuzztime 20s
+          go test ./types/pq -run '^$' -fuzz '^FuzzQueue$' -fuzztime 20s
+
+  # int is 32 bits here, which the size arithmetic in stream.Range and friends has to
+  # get right. The race detector does not support this platform.
+  test-32bit:
+    name: Test (32-bit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      - name: Test
+        run: GOARCH=386 go test ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      - name: Staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+
+      # The module has no dependencies, so this reports vulnerabilities in the parts of
+      # the standard library that the code calls.
+      - name: Govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

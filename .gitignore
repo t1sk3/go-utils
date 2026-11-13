@@ -1,0 +1,14 @@
+# Local workspace files. This repository is a single module, so a go.work is only ever
+# a personal setup and must not be committed.
+go.work
+go.work.sum
+
+# Test and profiling output.
+*.test
+*.out
+*.prof
+
+# Editors.
+.idea/
+.vscode/
+.DS_Store
