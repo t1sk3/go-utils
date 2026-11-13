@@ -211,6 +211,84 @@ func (v VecN[T]) Lerp(o VecN[T], t float64) VecN[T] {
 	return v.zip(o, func(a, b T) T { return lerp(a, b, t) })
 }
 
+// Slerp returns the spherical interpolation between v (at t = 0) and o (at t = 1): the
+// direction turns at a constant rate along the arc between them, and the length changes
+// linearly. Lerp cuts straight across instead, which shortens the vector on the way.
+// When the arc is not defined, because either vector is zero or they point the same or
+// opposite ways, Slerp returns Lerp.
+func (v VecN[T]) Slerp(o VecN[T], t float64) VecN[T] {
+	mustMatch(len(v), len(o))
+	var dot float64
+	for i := range v {
+		dot += float64(v[i]) * float64(o[i])
+	}
+	ka, kb, ok := slerpWeights(dot, v.Length(), o.Length(), t)
+	if !ok {
+		return v.Lerp(o, t)
+	}
+	return v.zip(o, func(a, b T) T { return T(ka*float64(a) + kb*float64(b)) })
+}
+
+// ClampLength returns v shortened to length limit if it is longer, keeping its
+// direction, and v itself otherwise.
+func (v VecN[T]) ClampLength(limit float64) VecN[T] {
+	k, ok := clampScale(v.Length(), limit)
+	if !ok {
+		return v.Clone()
+	}
+	return v.mapc(func(a T) T { return T(float64(a) * k) })
+}
+
+// Floor returns v with every component rounded down. Integer vectors are unchanged.
+func (v VecN[T]) Floor() VecN[T] {
+	return v.mapc(func(a T) T { return roundWith(a, math.Floor) })
+}
+
+// Ceil returns v with every component rounded up. Integer vectors are unchanged.
+func (v VecN[T]) Ceil() VecN[T] {
+	return v.mapc(func(a T) T { return roundWith(a, math.Ceil) })
+}
+
+// Round returns v with every component rounded to the nearest integer, halves away
+// from zero. Integer vectors are unchanged.
+func (v VecN[T]) Round() VecN[T] {
+	return v.mapc(func(a T) T { return roundWith(a, math.Round) })
+}
+
+// AddInPlace adds o to v, changing v itself, and returns v. Unlike Add it allocates
+// nothing, which matters in loops over large vectors. The other methods never change
+// their receiver; only the InPlace ones do.
+func (v VecN[T]) AddInPlace(o VecN[T]) VecN[T] {
+	mustMatch(len(v), len(o))
+	for i := range v {
+		v[i] += o[i]
+	}
+	return v
+}
+
+// SubInPlace subtracts o from v, changing v itself, and returns v.
+func (v VecN[T]) SubInPlace(o VecN[T]) VecN[T] {
+	mustMatch(len(v), len(o))
+	for i := range v {
+		v[i] -= o[i]
+	}
+	return v
+}
+
+// ScaleInPlace multiplies v by the scalar s, changing v itself, and returns v.
+func (v VecN[T]) ScaleInPlace(s T) VecN[T] {
+	for i := range v {
+		v[i] *= s
+	}
+	return v
+}
+
+// ToVec4 returns v as a Vec4. It panics unless v has dimension 4.
+func (v VecN[T]) ToVec4() Vec4[T] {
+	mustMatch(len(v), 4)
+	return Vec4[T]{v[0], v[1], v[2], v[3]}
+}
+
 // AngleTo returns the angle between v and o in radians, in [0, π]. It returns 0 if
 // either vector is zero.
 func (v VecN[T]) AngleTo(o VecN[T]) float64 {
@@ -387,4 +465,48 @@ func angle(dot, lengths float64) float64 {
 		return 0
 	}
 	return math.Acos(max(-1, min(1, dot/lengths)))
+}
+
+// isInteger reports whether T is an integer type, by checking whether it can hold a
+// fraction.
+func isInteger[T constraints.Number]() bool {
+	half := 0.5
+	return T(half) == 0
+}
+
+// roundWith applies f, one of math.Floor, math.Ceil and math.Round, to x. Integers are
+// returned as they are, without the detour through float64 that would lose precision
+// for large values.
+func roundWith[T constraints.Number](x T, f func(float64) float64) T {
+	if isInteger[T]() {
+		return x
+	}
+	return T(f(float64(x)))
+}
+
+// clampScale returns the factor that shortens a vector of the given length to at most
+// limit, and false if it is already short enough. A negative limit counts as zero.
+func clampScale(length, limit float64) (float64, bool) {
+	limit = max(limit, 0)
+	if !(length > limit) {
+		return 0, false
+	}
+	return limit / length, true
+}
+
+// slerpWeights returns the weights ka and kb with which Slerp combines two vectors of
+// lengths la and lb whose dot product is dot: the result is ka*v + kb*o. It reports
+// false when the direction of the result is not defined, which is when either vector
+// is zero or they point the same or opposite ways; callers then fall back to Lerp.
+func slerpWeights(dot, la, lb, t float64) (ka, kb float64, ok bool) {
+	if la == 0 || lb == 0 {
+		return 0, 0, false
+	}
+	omega := math.Acos(max(-1, min(1, dot/(la*lb))))
+	sin := math.Sin(omega)
+	if sin < 1e-9 {
+		return 0, 0, false
+	}
+	length := la + (lb-la)*t
+	return length * math.Sin((1-t)*omega) / sin / la, length * math.Sin(t*omega) / sin / lb, true
 }
