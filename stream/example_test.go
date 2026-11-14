@@ -68,6 +68,12 @@ func ExampleRangeClosed() {
 	// Output: [1 2 3 4 5]
 }
 
+func ExampleRangeFrom() {
+	// The first square above 50, with no upper bound to guess.
+	fmt.Println(stream.RangeFrom(1).Filter(func(n int) bool { return n*n > 50 }).FindFirst().Get())
+	// Output: 8
+}
+
 func ExampleAverage() {
 	fmt.Println(stream.Average(stream.Of(1, 2, 6)).Get())
 	// Output: 3

@@ -124,6 +124,39 @@ func TestRangeClosed_StopsEarly(t *testing.T) {
 	}
 }
 
+func TestRangeFrom(t *testing.T) {
+	if got := RangeFrom(1).Limit(5).ToSlice(); !slices.Equal(got, []int{1, 2, 3, 4, 5}) {
+		t.Errorf("from 1: got %v", got)
+	}
+	if got := RangeFrom(-2).Limit(4).ToSlice(); !slices.Equal(got, []int{-2, -1, 0, 1}) {
+		t.Errorf("from -2: got %v", got)
+	}
+	if got := RangeFrom(10).TakeWhile(func(v int) bool { return v < 13 }).ToSlice(); !slices.Equal(got, []int{10, 11, 12}) {
+		t.Errorf("TakeWhile: got %v", got)
+	}
+	if s := RangeFrom(0); s.size != -1 {
+		t.Errorf("size = %d, want -1", s.size)
+	}
+}
+
+func TestRangeFrom_TypeLimits(t *testing.T) {
+	if got := RangeFrom[int8](125).ToSlice(); !slices.Equal(got, []int8{125, 126, 127}) {
+		t.Errorf("int8: got %v", got)
+	}
+	if got := RangeFrom[uint8](254).ToSlice(); !slices.Equal(got, []uint8{254, 255}) {
+		t.Errorf("uint8: got %v", got)
+	}
+	if got := RangeFrom[int8](math.MaxInt8).ToSlice(); !slices.Equal(got, []int8{math.MaxInt8}) {
+		t.Errorf("from MaxInt8: got %v", got)
+	}
+	if got := RangeFrom[uint64](math.MaxUint64 - 1).ToSlice(); !slices.Equal(got, []uint64{math.MaxUint64 - 1, math.MaxUint64}) {
+		t.Errorf("uint64: got %v", got)
+	}
+	if got := RangeFrom[int8](math.MinInt8).Count(); got != 256 {
+		t.Errorf("whole int8: Count = %d, want 256", got)
+	}
+}
+
 func TestAverage(t *testing.T) {
 	if got := Average(Of(1, 2, 4)).Get(); got != 7.0/3.0 {
 		t.Errorf("ints: got %v", got)

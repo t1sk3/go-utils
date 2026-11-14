@@ -37,6 +37,8 @@ the module is at v0, so minor releases may break the API.
 
 ### Added
 
+- `stream.RangeFrom`, an infinite Stream of consecutive integers that ends after the
+  largest value of the type instead of wrapping around.
 - `optional.Optional.OrZero`, a name for `Get` that says what happens when empty.
 - `pq.Queue.String`.
 - Fuzz tests for `sorted.Map`, `linked.Map`, `deque.Deque` and `pq.Queue`.
