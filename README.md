@@ -147,7 +147,7 @@ stream.FromSlice(users).Sorted(stream.ThenComparing(stream.Reversed(byAge), byNa
 
 | | |
 |---|---|
-| **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `FromOptional`, `OfNullable`, `Range`, `RangeClosed`, `Iterate`, `IterateWhile`, `Generate`, `Concat`, `Empty` |
+| **Sources** | `Of`, `FromSlice`, `FromSeq`, `FromSeq2`, `FromMap`, `FromOptional`, `OfNullable`, `Range`, `RangeClosed`, `RangeFrom`, `Iterate`, `IterateWhile`, `Generate`, `Concat`, `Empty` |
 | **Intermediate methods** | `Filter`, `Map`, `FlatMap`, `DistinctBy`, `Scan`, `Zip`, `Enumerate`, `Chunk`, `Window`, `MapConcurrent`, `Peek`, `Limit`, `Skip`, `TakeWhile`, `DropWhile`, `Sorted`, `Parallel` |
 | **Terminal methods** | `ToSlice`, `ForEach`, `Count`, `Reduce`, `Fold`, `Collect`, `Min`, `Max`, `FindFirst`, `FindLast`, `AnyMatch`, `AllMatch`, `NoneMatch`, `Partition`, `GroupBy`, `CountBy`, `ToMap`, `ToMapMerge`, `All` |
 | **Functions** | `Distinct`, `Sort`, `Sum`, `Average`, `Summarize`, `Min`, `Max`, `ToSet`, `ToSeq2`, `Join`, `Identity` |

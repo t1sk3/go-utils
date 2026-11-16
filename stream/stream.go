@@ -149,6 +149,19 @@ func RangeClosed[T constraints.Integer](start, end T) Stream[T] {
 	}}
 }
 
+// RangeFrom returns an infinite Stream of the integers start, start+1, start+2, ...
+// It ends after the largest value of T instead of wrapping around. Bound it with
+// Limit or TakeWhile before calling a terminal operation that consumes every element:
+//
+//	stream.RangeFrom(1).Filter(isAnswer).FindFirst()
+func RangeFrom[T constraints.Integer](start T) Stream[T] {
+	return Stream[T]{size: -1, seq: func(yield func(T) bool) {
+		// v+1 > v is false only when v is the largest value of T, where v++ would wrap.
+		for v := start; yield(v) && v+1 > v; v++ {
+		}
+	}}
+}
+
 // Iterate returns an infinite Stream of seed, next(seed), next(next(seed)), ...
 // Bound it with Limit or TakeWhile before calling a terminal operation that
 // consumes every element.
