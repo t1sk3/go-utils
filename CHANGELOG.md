@@ -41,6 +41,9 @@ the module is at v0, so minor releases may break the API.
   largest value of the type instead of wrapping around.
 - `stream.FixedPoint(f)`, a predicate that reports whether `v == f(v)`, so
   `Filter(func(i int) bool { return i == f(i) })` becomes `Filter(stream.FixedPoint(f))`.
+- `stream.Add` and `stream.Multiply`, generic `+` and `*` for any numeric type that can be
+  passed to `Fold`, `Reduce`, `Scan` and `Folding` without instantiation:
+  `s.Fold(1, stream.Multiply)` is the product of `s`.
 - `optional.Optional.OrZero`, a name for `Get` that says what happens when empty.
 - `pq.Queue.String`.
 - Fuzz tests for `sorted.Map`, `linked.Map`, `deque.Deque` and `pq.Queue`.
