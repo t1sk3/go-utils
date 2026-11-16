@@ -56,6 +56,15 @@ func Equal[T comparable](target T) func(T) bool {
 	return func(v T) bool { return v == target }
 }
 
+// FixedPoint returns a predicate that reports whether its argument is a fixed point
+// of f, that is whether v == f(v). It calls f once per element:
+//
+//	stream.Range(0, 10).Filter(stream.FixedPoint(func(i int) int { return i * i })) // 0 1
+func FixedPoint[T comparable](f func(T) T) func(T) bool {
+	checkFunc(f == nil, "FixedPoint")
+	return func(v T) bool { return v == f(v) }
+}
+
 // GreaterThan returns a predicate that reports whether its argument is greater
 // than bound.
 func GreaterThan[T cmp.Ordered](bound T) func(T) bool {

@@ -39,6 +39,8 @@ the module is at v0, so minor releases may break the API.
 
 - `stream.RangeFrom`, an infinite Stream of consecutive integers that ends after the
   largest value of the type instead of wrapping around.
+- `stream.FixedPoint(f)`, a predicate that reports whether `v == f(v)`, so
+  `Filter(func(i int) bool { return i == f(i) })` becomes `Filter(stream.FixedPoint(f))`.
 - `optional.Optional.OrZero`, a name for `Get` that says what happens when empty.
 - `pq.Queue.String`.
 - Fuzz tests for `sorted.Map`, `linked.Map`, `deque.Deque` and `pq.Queue`.
