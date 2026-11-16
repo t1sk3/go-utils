@@ -19,6 +19,8 @@ func TestPredicates(t *testing.T) {
 		{"IsNegative", nums.Filter(IsNegative).ToSlice(), []int{-3, -2, -1}},
 		{"IsZero", nums.Filter(IsZero).ToSlice(), []int{0}},
 		{"Equal", nums.Filter(Equal(2)).ToSlice(), []int{2}},
+		{"FixedPoint", nums.Filter(FixedPoint(func(v int) int { return v * v })).ToSlice(), []int{0, 1}},
+		{"FixedPoint(abs)", nums.Filter(FixedPoint(func(v int) int { return max(v, -v) })).ToSlice(), []int{0, 1, 2, 3}},
 		{"GreaterThan", nums.Filter(GreaterThan(1)).ToSlice(), []int{2, 3}},
 		{"LessThan", nums.Filter(LessThan(-1)).ToSlice(), []int{-3, -2}},
 		{"AtLeast", nums.Filter(AtLeast(2)).ToSlice(), []int{2, 3}},
@@ -80,4 +82,13 @@ func TestCombinatorsPanicOnNil(t *testing.T) {
 			f()
 		}()
 	}
+}
+
+func TestFixedPointNilPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("FixedPoint(nil) did not panic")
+		}
+	}()
+	FixedPoint[int](nil)
 }
