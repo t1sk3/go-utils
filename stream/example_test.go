@@ -188,3 +188,19 @@ func ExampleStream_GroupBy() {
 	fmt.Println(byLength[1], byLength[2], byLength[3], byLength[4])
 	// Output: [c] [go] [zig] [rust java]
 }
+
+func ExampleAdd() {
+	fmt.Println(stream.Of(1, 2, 3, 4).Fold(0, stream.Add))
+	fmt.Println(stream.Of(1, 2, 3, 4).Scan(0, stream.Add).ToSlice())
+	// Output:
+	// 10
+	// [1 3 6 10]
+}
+
+func ExampleMultiply() {
+	fmt.Println(stream.RangeClosed(1, 5).Fold(1, stream.Multiply))
+	fmt.Println(stream.Of(1.5, 2, 4).Reduce(stream.Multiply).Get())
+	// Output:
+	// 120
+	// 12
+}
