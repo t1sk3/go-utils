@@ -19,6 +19,7 @@ Small, dependency-free generic utilities.
 | [`deque`](types/deque) | `Deque[T]`, a double-ended queue that also works as a FIFO queue or a stack |
 | [`pq`](types/pq) | `Queue[T]`, a priority queue ordered by a comparator |
 | [`pair`](types/pair) | `Pair[A, B]`, two values of possibly different types |
+| [`triple`](types/triple) | `Triple[A, B, C]`, three values of possibly different types |
 | [`sorted`](types/sorted) | `Map[K, V]` and `Set[T]`, kept in comparator order with floor, ceiling and range lookups |
 | [`set`](types/set) | `Set[T]`, an unordered collection of distinct values |
 | [`linked`](types/linked) | `Map[K, V]` and `Set[T]` that remember insertion order, which also makes an LRU cache simple |
@@ -341,6 +342,11 @@ needs.
 
 `pair.Pair[A, B]` holds two values. It is what `Zip`, `Enumerate` and `FromMap` produce,
 and `First`, `Last` and friends on the maps return. `p.Unpack()` gives both values back.
+
+## triple
+
+`triple.Triple[A, B, C]` holds three values, like `Pair` with one more. `t.Unpack()` gives
+all three back and `t.Reverse()` flips their order.
 
 ## Performance
 
