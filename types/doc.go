@@ -8,6 +8,7 @@
 //   - [github.com/t1sk3/go-utils/types/deque]: Deque, a double-ended queue
 //   - [github.com/t1sk3/go-utils/types/pq]: Queue, a priority queue ordered by a comparator
 //   - [github.com/t1sk3/go-utils/types/pair]: Pair, two values of possibly different types
+//   - [github.com/t1sk3/go-utils/types/triple]: Triple, three values of possibly different types
 //   - [github.com/t1sk3/go-utils/types/sorted]: Map and Set, kept in comparator order
 //   - [github.com/t1sk3/go-utils/types/set]: Set, an unordered collection of distinct values
 //   - [github.com/t1sk3/go-utils/types/linked]: Map and Set that remember insertion order

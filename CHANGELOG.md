@@ -44,6 +44,8 @@ the module is at v0, so minor releases may break the API.
 - `stream.Add` and `stream.Multiply`, generic `+` and `*` for any numeric type that can be
   passed to `Fold`, `Reduce`, `Scan` and `Folding` without instantiation:
   `s.Fold(1, stream.Multiply)` is the product of `s`.
+- `triple.Triple[A, B, C]`, three values of possibly different types, with `Of`, `Unpack`,
+  `Reverse` and `String`, in the new `types/triple` package.
 - `optional.Optional.OrZero`, a name for `Get` that says what happens when empty.
 - `pq.Queue.String`.
 - Fuzz tests for `sorted.Map`, `linked.Map`, `deque.Deque` and `pq.Queue`.
